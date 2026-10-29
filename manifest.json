@@ -48,7 +48,8 @@
     "tabs"
   ],
   "host_permissions": [
-    "*://*.youtube.com/*"
+    "*://*.youtube.com/*",
+    "*://suggestqueries.google.com/*"
   ],
   "web_accessible_resources": [
     {

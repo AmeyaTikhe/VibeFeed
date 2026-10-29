@@ -182,26 +182,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
-   * Render Suggested Related Keywords (async - uses live YouTube autocomplete)
+   * Render Suggested Related Keywords
+   * Routes through service worker (which can reach suggestqueries.google.com),
+   * because the popup page CSP blocks direct cross-origin fetches.
    */
   async function renderRelatedSuggestions(showLoading = true) {
-    if (!relatedSuggestionsList || !window.VibeFeedRelatedSuggester) return;
+    if (!relatedSuggestionsList) return;
 
     if (showLoading) {
       relatedSuggestionsList.innerHTML = `<span class="suggestions-loading">✦ Fetching related vibes...</span>`;
     }
 
-    let suggestions;
-    try {
-      suggestions = await window.VibeFeedRelatedSuggester.getSuggestions(preferences.keywords || [], 8);
-    } catch {
-      suggestions = window.VibeFeedRelatedSuggester.getSuggestionsFallback(preferences.keywords || [], 8);
+    const keywords = preferences.keywords || [];
+
+    // Ask service worker to proxy the autocomplete fetch
+    let suggestions = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { action: 'FETCH_SUGGESTIONS', keywords, limit: 8 },
+        (resp) => {
+          if (chrome.runtime.lastError || !resp?.success || !resp.suggestions?.length) {
+            // Fallback: mirror keywords with simple suffix hints
+            resolve(getFallbackSuggestions(keywords));
+          } else {
+            resolve(resp.suggestions);
+          }
+        }
+      );
+    });
+
+    // Last-resort guard
+    if (!suggestions || suggestions.length === 0) {
+      suggestions = getFallbackSuggestions(keywords);
     }
 
     relatedSuggestionsList.innerHTML = '';
 
     if (!suggestions || suggestions.length === 0) {
-      relatedSuggestionsList.innerHTML = `<span class="suggestions-empty">No suggestions available yet. Add some keywords first!</span>`;
+      relatedSuggestionsList.innerHTML = `<span class="suggestions-empty">Add some keywords first to see suggestions!</span>`;
       return;
     }
 
@@ -225,6 +242,46 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       relatedSuggestionsList.appendChild(chip);
     });
+  }
+
+  /**
+   * Offline fallback: generate reasonable suggestions by appending sub-topic suffixes
+   */
+  function getFallbackSuggestions(keywords) {
+    if (!keywords || keywords.length === 0) return [];
+    const QUICK_MAP = {
+      ielts: ['IELTS Speaking', 'IELTS Writing', 'IELTS Listening', 'IELTS Reading Tips', 'English Proficiency'],
+      toefl: ['TOEFL Speaking', 'TOEFL Writing', 'Academic English'],
+      coding: ['System Design', 'Clean Code', 'Open Source', 'DevOps'],
+      python: ['Data Structures', 'FastAPI', 'Django Framework', 'NumPy'],
+      ai: ['LangChain', 'Prompt Engineering', 'AI Agents', 'Vector Databases'],
+      synthwave: ['Retrowave Mix', 'Dark Ambient', 'Outrun Music'],
+      lofi: ['Study Beats', 'Jazz Hop', 'Focus Instrumentals'],
+      minimalism: ['Desk Setup', 'Digital Declutter', 'Simple Living'],
+      productivity: ['Deep Work', 'Time Blocking', 'Second Brain', 'Notion Setup'],
+      fitness: ['Calisthenics', 'Mobility Routine', 'Zone 2 Cardio'],
+    };
+    const activeNorm = new Set(keywords.map(k => k.toLowerCase().replace(/^#+/, '')));
+    const out = [];
+    const seen = new Set();
+    for (const kw of keywords) {
+      const norm = kw.toLowerCase().replace(/^#+/, '');
+      const matchKey = Object.keys(QUICK_MAP).find(k => norm.includes(k) || k.includes(norm));
+      if (matchKey) {
+        for (const tag of QUICK_MAP[matchKey]) {
+          const tn = tag.toLowerCase();
+          if (!activeNorm.has(tn) && !seen.has(tn)) { seen.add(tn); out.push(tag); }
+        }
+      } else {
+        // Generic suffix hints
+        for (const suffix of [' explained', ' tutorial', ' deep dive']) {
+          const tag = kw.replace(/^#+/, '') + suffix;
+          const tn = tag.toLowerCase();
+          if (!activeNorm.has(tn) && !seen.has(tn)) { seen.add(tn); out.push(tag); }
+        }
+      }
+    }
+    return out.slice(0, 8);
   }
 
   // ============================================================

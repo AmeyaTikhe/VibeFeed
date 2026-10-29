@@ -273,6 +273,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Proxy: fetch YouTube autocomplete suggestions (popup/options can't reach cross-origin)
+  if (message.action === 'FETCH_SUGGESTIONS') {
+    const keywords = Array.isArray(message.keywords) ? message.keywords : [];
+    const limit = Number(message.limit) || 8;
+
+    async function fetchForQuery(query) {
+      try {
+        const url = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const text = await res.text();
+        const match = text.match(/\[.*\]/s);
+        if (!match) return [];
+        const parsed = JSON.parse(match[0]);
+        return (parsed[1] || []).map(s => s[0]).filter(Boolean).slice(0, 8);
+      } catch { return []; }
+    }
+
+    function extractTag(raw, kw) {
+      const kwClean = kw.replace(/^#+/, '').trim().toLowerCase();
+      const FILLER = new Set(['full','course','tutorial','how','to','the','a','an','in','for','beginners','advanced','complete','guide','tips','tricks','best','top','new','latest','free','2024','2025','2026','2027','video','channel','playlist','watch','learn','learning']);
+      let text = raw.replace(new RegExp('^' + kwClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', 'i'), '').trim();
+      if (!text || text.length < 3) text = raw;
+      text = text.replace(/\b(20\d{2})\b/g, '').trim();
+      const words = text.split(/\s+/).filter(w => w.length > 1 && !FILLER.has(w.toLowerCase())).slice(0, 4);
+      if (words.length === 0) return null;
+      const tag = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      return tag.length >= 3 ? tag : null;
+    }
+
+    (async () => {
+      const activeNorm = new Set(keywords.map(k => k.trim().toLowerCase()));
+      const candidates = [];
+      const seen = new Set();
+
+      for (const kw of keywords.slice(0, 5)) {
+        const raws = await fetchForQuery(kw);
+        for (const raw of raws) {
+          const tag = extractTag(raw, kw);
+          if (!tag) continue;
+          const norm = tag.toLowerCase();
+          if (activeNorm.has(norm)) continue;
+          if ([...activeNorm].some(a => norm.includes(a) || a.includes(norm))) continue;
+          if (seen.has(norm)) continue;
+          seen.add(norm);
+          candidates.push(tag);
+        }
+      }
+
+      // Shuffle for freshness
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+
+      sendResponse({ success: true, suggestions: candidates.slice(0, limit) });
+    })();
+    return true; // async
+  }
+
   if (message.action === 'INCREMENT_FILTER_COUNT') {
     const increment = Number(message.amount) || 1;
     chrome.storage.local.get(['stats'], (data) => {

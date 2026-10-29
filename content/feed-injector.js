@@ -444,13 +444,14 @@
 
       await this.refreshShelfVideos();
 
-      // Close dropdown on outside click
-      document.addEventListener('click', () => {
-        if (this.dropdownOpen) {
-          this.dropdownOpen = false;
-          this.renderDropdown();
-        }
-      }, { capture: true });
+      // Close dropdown when clicking outside the wrapper
+      document.addEventListener('click', (e) => {
+        if (!this.dropdownOpen) return;
+        const wrapper = this.shelfElement?.querySelector('#vf-dropdown-wrapper');
+        if (wrapper && wrapper.contains(e.target)) return; // click inside — leave open
+        this.dropdownOpen = false;
+        this.renderDropdown();
+      });
     }
 
     attachShelfEventListeners() {
