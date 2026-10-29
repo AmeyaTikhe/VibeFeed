@@ -417,10 +417,10 @@ body.apple-dark {
   width: 18px;
   left: 2px;
   bottom: 2px;
-  background-color: #555555;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease;
+  background-color: rgba(255, 69, 58, 0.82);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease, box-shadow 0.25s ease;
   border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 6px rgba(255, 69, 58, 0.35);
 }
 
 .apple-toggle input:checked + .toggle-slider {
@@ -430,7 +430,8 @@ body.apple-dark {
 
 .apple-toggle input:checked + .toggle-slider::before {
   transform: translateX(20px);
-  background-color: #000000;
+  background-color: rgba(48, 209, 88, 0.85);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 8px rgba(48, 209, 88, 0.45);
 }
 
 .version-tag {

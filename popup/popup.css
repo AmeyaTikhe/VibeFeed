@@ -90,21 +90,21 @@ body.apple-dark {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #FFFFFF;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
+  background: rgba(48, 209, 88, 0.9);
+  box-shadow: 0 0 6px rgba(48, 209, 88, 0.85);
   display: inline-block;
   animation: nothing-status-pulse 2s ease-in-out infinite alternate;
 }
 
 .brand-version.disabled .status-indicator {
-  background: #555555;
-  box-shadow: none;
+  background: rgba(255, 69, 58, 0.85);
+  box-shadow: 0 0 6px rgba(255, 69, 58, 0.8);
   animation: none;
 }
 
 @keyframes nothing-status-pulse {
   from { opacity: 0.6; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1.15); box-shadow: 0 0 8px rgba(255, 255, 255, 1); }
+  to { opacity: 1; transform: scale(1.15); box-shadow: 0 0 8px rgba(48, 209, 88, 1); }
 }
 
 /* ==========================================================================
@@ -148,10 +148,10 @@ body.apple-dark {
   width: 18px;
   left: 2px;
   bottom: 2px;
-  background-color: #555555;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease;
+  background-color: rgba(255, 69, 58, 0.82);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease, box-shadow 0.25s ease;
   border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 6px rgba(255, 69, 58, 0.35);
 }
 
 .apple-toggle.small .toggle-slider::before {
@@ -161,7 +161,7 @@ body.apple-dark {
   bottom: 2px;
 }
 
-/* Nothing OS Signature Active State: Pure stark white track with solid black knob */
+/* Active State: Track stays crisp, knob turns green with translucent sheen */
 .apple-toggle input:checked + .toggle-slider {
   background-color: #FFFFFF;
   border-color: #FFFFFF;
@@ -169,12 +169,14 @@ body.apple-dark {
 
 .apple-toggle input:checked + .toggle-slider::before {
   transform: translateX(20px);
-  background-color: #000000;
+  background-color: rgba(48, 209, 88, 0.85);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 8px rgba(48, 209, 88, 0.45);
 }
 
 .apple-toggle.small input:checked + .toggle-slider::before {
   transform: translateX(18px);
-  background-color: #000000;
+  background-color: rgba(48, 209, 88, 0.85);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 8px rgba(48, 209, 88, 0.45);
 }
 
 /* ==========================================================================
@@ -432,12 +434,13 @@ body.apple-dark {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #FFFFFF;
+  border: 1px solid #FFFFFF;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 11.5px;
-  color: #E5E5E5;
+  color: #000000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   animation: chip-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -448,74 +451,133 @@ body.apple-dark {
 }
 
 .preference-chip:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #FFFFFF;
+  background: #ECECEC;
+  border-color: #ECECEC;
+  color: #000000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
 }
 
-.preference-chip.is-hashtag .chip-text {
-  color: #FFFFFF;
+.preference-chip .chip-text {
+  color: #000000;
   font-weight: 600;
 }
 
+.preference-chip.is-hashtag .chip-text {
+  color: #000000;
+  font-weight: 700;
+}
+
 .preference-chip.is-elevated {
-  border-color: rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.05);
+  border-color: #FFFFFF;
+  background: #FFFFFF;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .chip-affinity-sparkle {
-  color: #FFFFFF;
+  color: #000000;
   font-size: 10px;
   opacity: 0.9;
+}
+
+.preference-chip .chip-remove-btn {
+  background: transparent;
+  border: none;
+  color: #555555;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.preference-chip .chip-remove-btn:hover {
+  color: #FFFFFF;
+  background: #000000;
 }
 
 .preference-chip.is-negative {
   border: 1px dashed rgba(255, 255, 255, 0.25);
   background: rgba(0, 0, 0, 0.5);
+  box-shadow: none;
+  color: #AAAAAA;
 }
 .preference-chip.is-negative .chip-text {
   color: #AAAAAA;
 }
+.preference-chip.is-negative .chip-remove-btn {
+  color: #888888;
+}
+.preference-chip.is-negative .chip-remove-btn:hover {
+  color: #000000;
+  background: #FFFFFF;
+}
 
 /* ==========================================================================
-   Suggested Related Vibes Chips
+   Suggested Related Vibes Card (Off-White Grey Container with Black Chips)
    ========================================================================== */
 .related-suggestions-card {
   margin-top: 2px;
-  background: rgba(14, 14, 14, 0.72);
+  background: #E5E5E9;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-.section-icon-sparkle {
-  color: #FFFFFF;
+.related-suggestions-card .section-title {
+  color: #000000;
+  font-weight: 700;
+}
+
+.related-suggestions-card .section-icon-sparkle {
+  color: #000000;
   font-size: 11px;
+}
+
+.related-suggestions-card .section-desc {
+  color: #555555;
+}
+
+.related-suggestions-card .action-link {
+  color: #444444;
+}
+
+.related-suggestions-card .action-link:hover {
+  color: #000000;
+}
+
+.related-suggestions-card .chips-grid::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .suggested-vibe-chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #CCCCCC;
+  background: #000000;
+  border: 1px solid #000000;
+  color: #FFFFFF;
   padding: 4px 10px;
   border-radius: 999px;
   font-family: inherit;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
   animation: chip-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-/* Nothing Inverted Hover: Crisp Solid White Button with Black Typography */
 .suggested-vibe-chip:hover {
-  background: #FFFFFF;
-  border-color: #FFFFFF;
-  color: #000000;
+  background: #242424;
+  border-color: #242424;
+  color: #FFFFFF;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .suggested-vibe-chip:active {
@@ -523,26 +585,34 @@ body.apple-dark {
 }
 
 .suggested-vibe-chip.is-hashtag {
-  color: #E0E0E0;
-  border-color: rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+  border-color: #000000;
 }
 
 .suggested-vibe-chip.added {
-  background: rgba(255, 255, 255, 0.2) !important;
-  border-color: #FFFFFF !important;
-  color: #FFFFFF !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
+  color: #000000 !important;
   pointer-events: none;
+  box-shadow: none;
 }
 
-.chip-plus {
+.suggested-vibe-chip .chip-plus {
   font-size: 12px;
   font-weight: 600;
-  opacity: 0.8;
+  color: #FFFFFF;
+  opacity: 0.9;
 }
 
 .suggested-vibe-chip:hover .chip-plus {
-  color: #000000;
+  color: #FFFFFF;
   opacity: 1;
+}
+
+.related-suggestions-card .suggestions-empty {
+  font-size: 11px;
+  color: #666666;
+  padding: 6px 2px;
 }
 
 /* ==========================================================================
