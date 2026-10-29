@@ -409,6 +409,72 @@ body.apple-dark {
   color: #FF453A;
 }
 
+/* ==========================================================================
+   Suggested Related Vibes Chips
+   ========================================================================== */
+.related-suggestions-card {
+  margin-top: 2px;
+  background: rgba(22, 22, 30, 0.55);
+}
+
+.section-icon-sparkle {
+  color: #64D2FF;
+  font-size: 11px;
+}
+
+.suggested-vibe-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(10, 132, 255, 0.08);
+  border: 1px solid rgba(10, 132, 255, 0.2);
+  color: #64D2FF;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  animation: chip-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.suggested-vibe-chip:hover {
+  background: rgba(10, 132, 255, 0.18);
+  border-color: rgba(100, 210, 255, 0.4);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+}
+
+.suggested-vibe-chip:active {
+  transform: scale(0.96);
+}
+
+.suggested-vibe-chip.is-hashtag {
+  color: #BF5AF2;
+  border-color: rgba(191, 90, 242, 0.25);
+  background: rgba(191, 90, 242, 0.08);
+}
+
+.suggested-vibe-chip.is-hashtag:hover {
+  border-color: rgba(191, 90, 242, 0.45);
+  background: rgba(191, 90, 242, 0.18);
+}
+
+.suggested-vibe-chip.added {
+  background: rgba(48, 209, 88, 0.18) !important;
+  border-color: rgba(48, 209, 88, 0.4) !important;
+  color: #30D158 !important;
+  pointer-events: none;
+}
+
+.chip-plus {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
 .chip-remove-btn {
   background: transparent;
   border: none;

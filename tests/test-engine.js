@@ -14,6 +14,10 @@ const VibeAnalyzer = global.window.VibeFeedAnalyzer;
 eval(fs.readFileSync('content/filter-engine.js', 'utf8'));
 const FilterEngine = global.window.VibeFeedFilterEngine;
 
+// Load RelatedSuggester
+eval(fs.readFileSync('content/related-suggester.js', 'utf8'));
+const RelatedSuggester = global.window.VibeFeedRelatedSuggester;
+
 console.log('--- Testing FilterEngine ---');
 const engine = new FilterEngine();
 engine.setPreferences({
@@ -113,6 +117,16 @@ if (hasAi && hasPython) {
   console.log('[PASS] VibeAnalyzer extracted expected AI and Python tags.');
 } else {
   console.log('[FAIL] VibeAnalyzer missed core topics.');
+  failed++;
+}
+
+console.log('\n--- Testing RelatedSuggester ---');
+const related = RelatedSuggester.getSuggestions(['coding', '#ai'], 6);
+console.log('Related suggestions for [coding, #ai]:', related);
+if (related.length > 0 && !related.some(k => k.toLowerCase() === 'coding' || k.toLowerCase() === '#ai')) {
+  console.log('[PASS] RelatedSuggester generates distinct, relevant topics.');
+} else {
+  console.error('[FAIL] RelatedSuggester returned invalid or duplicate results.');
   failed++;
 }
 

@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const negativeChipsList = document.getElementById('negative-chips-list');
   const negativeCount = document.getElementById('negative-count');
 
+  const relatedSuggestionsList = document.getElementById('related-suggestions-list');
+  const refreshSuggestionsBtn = document.getElementById('refresh-suggestions-btn');
+
   const toggleHideShorts = document.getElementById('toggle-hide-shorts');
   const toggleMatchChannel = document.getElementById('toggle-match-channel');
   const toggleWatchHud = document.getElementById('toggle-watch-hud');
@@ -93,6 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Render Lists
     renderKeywordsList();
+    renderRelatedSuggestions();
     renderNegativeChips();
     renderVibeRadar();
     updateFooterStats();
@@ -149,6 +153,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  /**
+   * Render Suggested Related Keywords below the preference list
+   */
+  function renderRelatedSuggestions() {
+    if (!relatedSuggestionsList || !window.VibeFeedRelatedSuggester) return;
+    relatedSuggestionsList.innerHTML = '';
+
+    const suggestions = window.VibeFeedRelatedSuggester.getSuggestions(preferences.keywords || [], 8);
+
+    suggestions.forEach(vibe => {
+      const isHashtag = vibe.startsWith('#');
+      const chip = document.createElement('button');
+      chip.className = `suggested-vibe-chip ${isHashtag ? 'is-hashtag' : ''}`;
+      chip.setAttribute('data-vibe', vibe);
+      chip.innerHTML = `
+        <span class="chip-plus">+</span>
+        <span class="chip-text">${escapeHtml(vibe)}</span>
+      `;
+
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addKeyword(vibe);
+        chip.classList.add('added');
+        chip.querySelector('.chip-plus').textContent = '✓';
+        setTimeout(() => {
+          renderRelatedSuggestions();
+        }, 400);
+      });
+
+      relatedSuggestionsList.appendChild(chip);
+    });
+  }
+
   function addKeyword(rawText) {
     let kw = (rawText || '').trim();
     if (!kw) return;
@@ -163,6 +200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const updated = [...preferences.keywords, kw];
       save({ keywords: updated });
       renderKeywordsList();
+      renderRelatedSuggestions();
       updateFooterStats();
       renderVibeRadar(); // Refresh radar added states
     }
@@ -176,6 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updated.splice(index, 1);
     save({ keywords: updated });
     renderKeywordsList();
+    renderRelatedSuggestions();
     updateFooterStats();
     renderVibeRadar();
   }
@@ -336,11 +375,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Refresh Suggestions Button
+  if (refreshSuggestionsBtn) {
+    refreshSuggestionsBtn.addEventListener('click', () => {
+      renderRelatedSuggestions();
+    });
+  }
+
   // Clear All Keywords
   clearAllKeywordsBtn.addEventListener('click', () => {
     if (confirm('Clear all keywords from your preference list?')) {
       save({ keywords: [] });
       renderKeywordsList();
+      renderRelatedSuggestions();
       updateFooterStats();
       renderVibeRadar();
     }

@@ -87,6 +87,21 @@
         </div>
       </section>
 
+      <!-- Suggested Related Vibes Card -->
+      <section class="section-card related-suggestions-card" id="related-suggestions-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-icon-sparkle">✦</span>
+            <span class="section-title">Suggested Related Vibes</span>
+          </div>
+          <button class="action-link" id="refresh-suggestions-btn">↻ Refresh</button>
+        </div>
+        <p class="section-desc">Tap to add matching topics based on your vibe:</p>
+        <div class="chips-grid" id="related-suggestions-list">
+          <!-- Dynamic Suggested Chips Injected Here -->
+        </div>
+      </section>
+
       <!-- Visual Filter Style Selector & Curation Toggle -->
       <section class="style-toggle-card">
         <span class="style-label">Filter Visual Style</span>
@@ -238,6 +253,7 @@
 
   </div>
 
+  <script src="../content/related-suggester.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
