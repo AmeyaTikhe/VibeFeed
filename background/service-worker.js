@@ -1,4 +1,4 @@
-/**
+﻿/**
  * VibeFeed - Background Service Worker (Manifest V3)
  * Handles storage initialization, badge counters, and tab messaging.
  */
@@ -76,7 +76,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Auto Mode & Keyword Decay Alarm Handler
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  // ── Auto-Discovery ──────────────────────────────────────────────────────
+  // â”€â”€ Auto-Discovery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (alarm.name === 'vibefeed-auto-discover') {
     const prefs = await chrome.storage.local.get(null);
     if (!prefs.autoMode) return;
@@ -93,7 +93,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     }
   }
 
-  // ── Keyword Decay ───────────────────────────────────────────────────────
+  // â”€â”€ Keyword Decay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Remove keywords that have low engagement over time.
   // Rules:
   //   - Keyword must have been added at least 7 days ago (tracked via keywordAddedAt)
@@ -275,17 +275,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Proxy: fetch YouTube autocomplete suggestions (popup/options can't reach cross-origin)
   if (message.action === 'FETCH_SUGGESTIONS') {
-    const keywords = Array.isArray(message.keywords) ? message.keywords : [];
-    const limit = Number(message.limit) || 12;
-    // keywordWeights passed from popup so higher-affinity keywords rank higher
+    const keywords   = Array.isArray(message.keywords) ? message.keywords : [];
+    const limit      = Number(message.limit) || 12;
     const weightsMap = message.keywordWeights || {};
 
     async function fetchForQuery(query) {
       try {
-        const url = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
-        const res = await fetch(url);
+        const url  = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
+        const res  = await fetch(url);
         if (!res.ok) return [];
-        const text = await res.text();
+        const text  = await res.text();
         const match = text.match(/\[.*\]/s);
         if (!match) return [];
         const parsed = JSON.parse(match[0]);
@@ -297,30 +296,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       'full','course','tutorial','how','to','the','a','an','in','for','and','or',
       'beginners','advanced','complete','guide','tips','tricks','best','top',
       'new','latest','free','2024','2025','2026','2027','video','channel',
-      'playlist','watch','learn','learning','official','part','episode','with'
+      'playlist','watch','learn','learning','official','part','episode','with','is','are'
     ]);
 
-    // Only accept suggestions that genuinely EXTEND the seed keyword
-    // (i.e. the raw autocomplete starts with the seed) — filters out garbage
-    // like "chemistry of alcohols" appearing in "ielts" completions.
-    function isRelevant(raw, kw) {
-      const kwClean = kw.replace(/^#+/, '').trim().toLowerCase();
-      const rawLower = raw.toLowerCase().trim();
-      return rawLower.startsWith(kwClean);
+    // Normalise keyword: strip #, split camelCase, lowercase
+    // "ieltsSpeaking" -> "ielts speaking", "#AI" -> "ai"
+    function normalise(kw) {
+      return kw
+        .replace(/^#+/, '')
+        .trim()
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+        .toLowerCase()
+        .trim();
     }
 
-    // Extract the differentiating part after the seed keyword
-    function extractTag(raw, kw) {
-      const kwClean = kw.replace(/^#+/, '').trim().toLowerCase();
-      const escKw = kwClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Strip the seed keyword from the front
-      let text = raw.replace(new RegExp('^#?' + escKw + '\\s*', 'i'), '').trim();
-      // If nothing useful left after stripping (single-word keyword = the whole suggestion),
-      // fall back to using the full raw phrase
+    // Cluster key = first word / first 5 chars of normalised kw
+    function clusterKey(kw) {
+      const n = normalise(kw);
+      const firstWord = n.split(/\s+/)[0];
+      return firstWord.length > 5 ? firstWord.slice(0, 5) : firstWord;
+    }
+
+    // Relevance: autocomplete result must START WITH the base query term
+    function isRelevant(raw, baseQuery) {
+      return raw.toLowerCase().trim().startsWith(baseQuery.toLowerCase().trim());
+    }
+
+    // Strip the base query prefix and title-case the remainder
+    function extractTag(raw, baseQuery) {
+      const esc  = baseQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let   text = raw.replace(new RegExp('^' + esc + '\\s*', 'i'), '').trim();
       if (!text || text.length < 2) text = raw.trim();
-      // Drop trailing years
       text = text.replace(/\b(20\d{2})\b/g, '').trim();
-      // Filter filler, cap at 5 words
       const words = text.split(/\s+/).filter(w => w.length > 1 && !FILLER.has(w.toLowerCase())).slice(0, 5);
       if (words.length === 0) return null;
       const tag = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -330,72 +338,95 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       if (keywords.length === 0) {
         sendResponse({ success: true, suggestions: [
-          'Productivity', 'Deep Work', 'Minimalism', 'Coding', 'AI Tools',
-          'Science Documentaries', 'Fitness', 'Lo-fi Music', 'Design', 'Philosophy'
+          'Productivity','Deep Work','Minimalism','Coding','AI Tools',
+          'Science Documentaries','Fitness','Lo-fi Music','Design','Philosophy'
         ].slice(0, limit) });
         return;
       }
 
-      // Pre-seed the exclusion set with all current keywords (don't suggest what's already there)
-      const activeNorm = new Set(keywords.map(k => k.trim().toLowerCase().replace(/^#+/, '')));
+      const activeNorm = new Set(keywords.map(k => normalise(k)));
 
-      // co-occurrence map: tagNorm -> { tag, score, count }
-      // score = sum of keyword watch-weights for each keyword that produced this suggestion
-      // count = number of distinct keywords that generated it (co-occurrence bonus)
-      const coScore = new Map();
+      // â”€â”€ Step 1: cluster keywords by shared prefix/theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // clusters: clusterKey -> { baseQuery, members[], totalWeight }
+      const clusters = new Map();
+      for (const kw of keywords) {
+        const ck   = clusterKey(kw);
+        const norm = normalise(kw);
+        const wt   = weightsMap[norm]?.weight || 1.0;
+        if (!clusters.has(ck)) {
+          clusters.set(ck, { baseQuery: norm.split(/\s+/)[0], members: [], totalWeight: 0 });
+        }
+        const cl = clusters.get(ck);
+        cl.members.push(kw);
+        cl.totalWeight += wt;
+        // Keep baseQuery as the first word of the shortest member (most general)
+        const candidate = norm.split(/\s+/)[0];
+        if (candidate.length <= cl.baseQuery.length) cl.baseQuery = candidate;
+      }
 
-      // Fetch all keywords in parallel
-      const results = await Promise.all(
-        keywords.slice(0, 8).map(kw =>
-          fetchForQuery(kw.replace(/^#+/, '').trim()).then(raws => ({ kw, raws }))
-        )
-      );
+      // â”€â”€ Step 2: allocate query budget proportional to cluster dominance â”€â”€
+      // A cluster with 5/7 keywords gets ~71 % of the 10 available query slots.
+      const MAX_QUERIES = 10;
+      const totalWeight = [...clusters.values()].reduce((s, c) => s + c.totalWeight, 0);
+      const queryPlan   = []; // { query, baseQuery, clusterWeight }
 
-      for (const { kw, raws } of results) {
-        const kwNorm = kw.toLowerCase().replace(/^#+/, '').trim();
-        // Keyword's watch weight (default 1.0 for unweighted keywords)
-        const kwWeight = (weightsMap[kwNorm]?.weight) || 1.0;
+      for (const cl of clusters.values()) {
+        const share  = cl.totalWeight / (totalWeight || 1);
+        const budget = Math.max(1, Math.round(share * MAX_QUERIES));
 
-        const seenInQuery = new Set(); // avoid double-counting within same keyword
+        // Always query the bare base term first
+        queryPlan.push({ query: cl.baseQuery, baseQuery: cl.baseQuery, clusterWeight: cl.totalWeight });
 
-        for (const raw of raws) {
-          // Hard relevance gate: raw must start with the keyword
-          if (!isRelevant(raw, kw)) continue;
-
-          const tag = extractTag(raw, kw);
-          if (!tag) continue;
-
-          const norm = tag.toLowerCase();
-
-          // Skip if identical/too similar to an existing preference keyword
-          if ([...activeNorm].some(a => norm === a || norm.includes(a) || a.includes(norm))) continue;
-          if (seenInQuery.has(norm)) continue;
-          seenInQuery.add(norm);
-
-          const existing = coScore.get(norm) || { tag, score: 0, count: 0 };
-          coScore.set(norm, {
-            tag,
-            score: existing.score + kwWeight, // higher-weight keywords boost the score
-            count: existing.count + 1          // co-occurrence across keywords
-          });
+        // For dominant clusters, also query each member keyword (normalised)
+        // to surface sub-topics beyond the obvious ones
+        if (budget >= 2) {
+          for (const kw of cl.members.slice(0, budget - 1)) {
+            const q = normalise(kw); // e.g. "ielts writing" from "ieltswriting"
+            if (q !== cl.baseQuery) {
+              queryPlan.push({ query: q, baseQuery: cl.baseQuery, clusterWeight: cl.totalWeight });
+            }
+          }
         }
       }
 
-      // Sort: primarily by score (watch-weight sum), secondarily by co-occurrence count
-      const sorted = [...coScore.values()].sort((a, b) =>
-        b.score !== a.score ? b.score - a.score : b.count - a.count
+      // â”€â”€ Step 3: fetch in parallel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      const results = await Promise.all(
+        queryPlan.map(p => fetchForQuery(p.query).then(raws => ({ ...p, raws })))
       );
 
-      // Shuffle the top tier slightly (top 2× limit) for freshness, then trim
-      const topTier = sorted.slice(0, limit * 2);
-      for (let i = topTier.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [topTier[i], topTier[j]] = [topTier[j], topTier[i]];
+      // â”€â”€ Step 4: score by co-occurrence + cluster weight â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // coScore: tagNorm -> { tag, score, count }
+      const seenNorms = new Set(activeNorm);
+      const coScore   = new Map();
+
+      for (const { raws, baseQuery, clusterWeight } of results) {
+        const seenInQuery = new Set();
+        for (const raw of raws) {
+          if (!isRelevant(raw, baseQuery)) continue;
+          const tag = extractTag(raw, baseQuery);
+          if (!tag) continue;
+          const norm = tag.toLowerCase();
+          if ([...seenNorms].some(a => norm === a || norm.includes(a) || a.includes(norm))) continue;
+          if (seenInQuery.has(norm)) continue;
+          seenInQuery.add(norm);
+          const existing = coScore.get(norm) || { tag, score: 0, count: 0 };
+          coScore.set(norm, { tag, score: existing.score + clusterWeight, count: existing.count + 1 });
+        }
       }
 
-      sendResponse({ success: true, suggestions: topTier.slice(0, limit).map(c => c.tag) });
+      // â”€â”€ Step 5: rank, light shuffle for freshness, trim â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      const ranked = [...coScore.values()].sort((a, b) =>
+        b.score !== a.score ? b.score - a.score : b.count - a.count
+      );
+      const top = ranked.slice(0, limit * 2);
+      for (let i = top.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [top[i], top[j]] = [top[j], top[i]];
+      }
+      sendResponse({ success: true, suggestions: top.slice(0, limit).map(c => c.tag) });
     })();
     return true; // async
+  }
   }
 
   if (message.action === 'INCREMENT_FILTER_COUNT') {
