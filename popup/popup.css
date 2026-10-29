@@ -332,7 +332,8 @@ body.apple-dark {
 }
 
 .input-submit-btn:hover {
-  background: #E0E0E0;
+  background: #FFFFFF;
+  color: #000000;
   transform: translateY(-1px);
 }
 
@@ -451,11 +452,11 @@ body.apple-dark {
 }
 
 .preference-chip:hover {
-  background: #ECECEC;
-  border-color: #ECECEC;
+  background: #FFFFFF;
+  border-color: #FFFFFF;
   color: #000000;
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
 .preference-chip .chip-text {
@@ -518,13 +519,13 @@ body.apple-dark {
 }
 
 /* ==========================================================================
-   Suggested Related Vibes Card (Off-White Grey Container with Black Chips)
+   Suggested Related Vibes Card (Plain White Container with Black Chips)
    ========================================================================== */
 .related-suggestions-card {
   margin-top: 2px;
-  background: #E5E5E9;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: #FFFFFF;
+  border: 1px solid #FFFFFF;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
 }
 
 .related-suggestions-card .section-title {

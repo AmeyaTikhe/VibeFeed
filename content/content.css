@@ -280,7 +280,8 @@
 }
 
 .vibefeed-add-all-btn:hover {
-  background: #E0E0E0;
+  background: #FFFFFF;
+  opacity: 0.9;
   transform: translateY(-1px);
 }
 
