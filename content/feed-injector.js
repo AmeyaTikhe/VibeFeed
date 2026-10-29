@@ -1,8 +1,9 @@
 /**
- * VibeFeed - Feed Injector Engine (Adaptive V3)
- * Implements weighted preference curation based on watch history,
- * strict diversity guardrails, exploration/discovery quotas,
- * and live synchronization of preference changes on refresh.
+ * VibeFeed - Feed Injector Engine (Adaptive V4)
+ * - Multi-select keyword dropdown (replaces tabs)
+ * - "All" option with prev-selection memory
+ * - Auto-refreshes on any preference change
+ * - Weighted diversity-guarded curated pool
  */
 
 (function () {
@@ -10,81 +11,206 @@
 
   class FeedInjector {
     constructor() {
-      this.cachedVideos = new Map(); // query -> array of video objects
+      this.cachedVideos = new Map();
       this.injectedIds = new Set();
       this.currentVideoPool = [];
       this.activeFilteredPool = [];
       this.displayedCount = 18;
       this.shelfElement = null;
-      this.currentFilterTab = 'all';
       this.preferences = null;
+
+      // Dropdown state
+      this.selectedKeywords = new Set(); // 'all' means every keyword is active
+      this.isAllSelected = true;
+      this.prevSelectedKeywords = new Set(); // memory for when "All" is deselected
+      this.dropdownOpen = false;
+
+      // Debounce for auto-refresh
+      this._refreshDebounceTimer = null;
     }
 
     setPreferences(prefs) {
       this.preferences = prefs || {};
+
+      // Sync selectedKeywords: remove any that were deleted from prefs
+      const kwSet = new Set((this.preferences.keywords || []).map(k => k.toLowerCase()));
+      for (const sel of this.selectedKeywords) {
+        if (!kwSet.has(sel.toLowerCase())) this.selectedKeywords.delete(sel);
+      }
+      if (this.isAllSelected) {
+        this.selectedKeywords = new Set(this.preferences.keywords || []);
+      }
     }
 
     /**
-     * Updates the shelf tabs dynamically when preferences change
+     * Called by content.js whenever storage changes - auto-refreshes shelf
      */
-    updatePreferencesAndTabs(newPrefs) {
+    onPreferencesChanged(newPrefs) {
+      const oldKeywords = JSON.stringify(this.preferences?.keywords || []);
       this.setPreferences(newPrefs);
+      const newKeywords = JSON.stringify(newPrefs?.keywords || []);
+
       if (!this.shelfElement) return;
 
-      this.renderShelfTabs();
-      this.refreshShelfVideos();
+      // Rebuild dropdown options to reflect new keywords
+      this.renderDropdown();
+
+      // Debounced refresh so rapid adds don't trigger a flood of fetches
+      if (this._refreshDebounceTimer) clearTimeout(this._refreshDebounceTimer);
+      this._refreshDebounceTimer = setTimeout(async () => {
+        // Invalidate cache only if keywords changed
+        if (oldKeywords !== newKeywords) {
+          this.cachedVideos.clear();
+          this.displayedCount = 18;
+        }
+        await this.refreshShelfVideos();
+      }, 600);
     }
 
-    /**
-     * Renders or re-renders the topic tabs in the shelf header
-     */
-    renderShelfTabs() {
+    // ─────────────────────────────────────────────────────────────────────────
+    // Dropdown rendering
+    // ─────────────────────────────────────────────────────────────────────────
+
+    renderDropdown() {
       if (!this.shelfElement) return;
-      const tabsContainer = this.shelfElement.querySelector('#vf-shelf-tabs');
-      if (!tabsContainer) return;
+      const wrapper = this.shelfElement.querySelector('#vf-dropdown-wrapper');
+      if (!wrapper) return;
 
       const keywords = this.preferences?.keywords || [];
-      
-      // If current filter tab was deleted, reset to 'all'
-      const lowerKeywords = keywords.map(k => k.toLowerCase());
-      if (this.currentFilterTab !== 'all' && !lowerKeywords.includes(this.currentFilterTab.toLowerCase())) {
-        this.currentFilterTab = 'all';
-      }
 
-      const tabsHtml = `
-        <button class="vf-tab-btn ${this.currentFilterTab === 'all' ? 'active' : ''}" data-kw="all">All Vibes</button>
-        ${keywords.slice(0, 7).map(k => {
-          const isActive = this.currentFilterTab.toLowerCase() === k.toLowerCase();
-          const weightInfo = this.preferences?.keywordWeights?.[k.toLowerCase()];
-          const isPriority = weightInfo && weightInfo.weight > 1.3;
-          return `
-            <button class="vf-tab-btn ${isActive ? 'active' : ''} ${isPriority ? 'is-priority' : ''}" data-kw="${escapeAttr(k)}">
-              ${isPriority ? '<span class="vf-tab-pulse">✦</span>' : ''}
-              <span>${escapeHtml(k)}</span>
-            </button>
-          `;
-        }).join('')}
+      // Determine label for button
+      const label = this.isAllSelected
+        ? 'All Vibes'
+        : this.selectedKeywords.size === 0
+          ? 'None selected'
+          : this.selectedKeywords.size === 1
+            ? [...this.selectedKeywords][0]
+            : `${this.selectedKeywords.size} topics`;
+
+      wrapper.innerHTML = `
+        <button class="vf-dropdown-btn" id="vf-dropdown-trigger" title="Filter by topic">
+          <span class="vf-dropdown-label">${escapeHtml(label)}</span>
+          <span class="vf-dropdown-caret">${this.dropdownOpen ? '▲' : '▼'}</span>
+        </button>
+        ${this.dropdownOpen ? this.buildDropdownPanel(keywords) : ''}
       `;
 
-      tabsContainer.innerHTML = tabsHtml;
+      this.attachDropdownEvents(wrapper, keywords);
+    }
 
-      // Re-attach tab click events
-      tabsContainer.querySelectorAll('.vf-tab-btn').forEach(tab => {
-        tab.addEventListener('click', async (e) => {
+    buildDropdownPanel(keywords) {
+      const weightsMap = this.preferences?.keywordWeights || {};
+      const allChecked = this.isAllSelected;
+
+      const keywordItems = keywords.map(kw => {
+        const isChecked = this.isAllSelected || this.selectedKeywords.has(kw);
+        const weightInfo = weightsMap[kw.toLowerCase()];
+        const isPriority = weightInfo && weightInfo.weight > 1.3;
+        return `
+          <label class="vf-dropdown-item ${isPriority ? 'is-priority' : ''}" title="${escapeAttr(kw)}">
+            <input type="checkbox" class="vf-kw-checkbox" data-kw="${escapeAttr(kw)}"
+              ${isChecked ? 'checked' : ''}>
+            ${isPriority ? '<span class="vf-item-sparkle">✦</span>' : ''}
+            <span class="vf-item-label">${escapeHtml(kw)}</span>
+          </label>
+        `;
+      }).join('');
+
+      return `
+        <div class="vf-dropdown-panel" id="vf-dropdown-panel">
+          <div class="vf-dropdown-panel-header">
+            <span class="vf-dropdown-panel-title">Filter by Vibe</span>
+            <button class="vf-dropdown-close-btn" id="vf-dropdown-close" title="Close">✕</button>
+          </div>
+          <label class="vf-dropdown-item vf-all-item">
+            <input type="checkbox" id="vf-all-checkbox" ${allChecked ? 'checked' : ''}>
+            <span class="vf-item-label vf-all-label">All Vibes</span>
+          </label>
+          <div class="vf-dropdown-divider"></div>
+          <div class="vf-dropdown-items-scroll">
+            ${keywordItems}
+          </div>
+        </div>
+      `;
+    }
+
+    attachDropdownEvents(wrapper, keywords) {
+      const trigger = wrapper.querySelector('#vf-dropdown-trigger');
+      if (trigger) {
+        trigger.addEventListener('click', (e) => {
           e.stopPropagation();
-          tabsContainer.querySelectorAll('.vf-tab-btn').forEach(t => t.classList.remove('active'));
-          tab.classList.add('active');
+          this.dropdownOpen = !this.dropdownOpen;
+          this.renderDropdown();
+        });
+      }
 
-          this.currentFilterTab = tab.getAttribute('data-kw');
-          this.displayedCount = 18;
-          await this.renderCardsForCurrentTab();
+      const panel = wrapper.querySelector('#vf-dropdown-panel');
+      if (!panel) return;
+
+      // Prevent panel clicks closing it
+      panel.addEventListener('click', e => e.stopPropagation());
+
+      // ✕ Close button inside panel header
+      const closeBtn = panel.querySelector('#vf-dropdown-close');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.dropdownOpen = false;
+          this.renderDropdown();
+        });
+      }
+
+      // "All Vibes" master checkbox
+      const allCb = panel.querySelector('#vf-all-checkbox');
+      if (allCb) {
+        allCb.addEventListener('change', () => {
+          if (allCb.checked) {
+            // Remember what was selected before going to All
+            this.prevSelectedKeywords = new Set(this.selectedKeywords);
+            this.isAllSelected = true;
+            this.selectedKeywords = new Set(keywords);
+          } else {
+            // Fall back to previously selected subset (or all if prev was empty)
+            this.isAllSelected = false;
+            this.selectedKeywords = this.prevSelectedKeywords.size > 0
+              ? new Set(this.prevSelectedKeywords)
+              : new Set(keywords); // can't leave nothing selected; revert to all
+          }
+          this.renderDropdown();
+          this.triggerAutoRefresh();
+        });
+      }
+
+      // Individual keyword checkboxes
+      panel.querySelectorAll('.vf-kw-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const kw = cb.getAttribute('data-kw');
+          if (cb.checked) {
+            this.selectedKeywords.add(kw);
+          } else {
+            this.selectedKeywords.delete(kw);
+          }
+          // If all are manually checked, flip to All mode
+          this.isAllSelected = (this.selectedKeywords.size === keywords.length);
+          this.prevSelectedKeywords = new Set(this.selectedKeywords);
+          this.renderDropdown();
+          this.triggerAutoRefresh();
         });
       });
     }
 
-    /**
-     * Expand a keyword into multiple contextual queries
-     */
+    triggerAutoRefresh() {
+      if (this._refreshDebounceTimer) clearTimeout(this._refreshDebounceTimer);
+      this._refreshDebounceTimer = setTimeout(async () => {
+        this.displayedCount = 18;
+        await this.renderCardsForCurrentTab();
+      }, 300);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Query Expansion
+    // ─────────────────────────────────────────────────────────────────────────
+
     expandKeywordQueries(keyword) {
       const clean = (keyword || '').trim().replace(/^#+/, '');
       if (!clean) return [];
@@ -93,19 +219,19 @@
       const variations = [clean];
 
       if (lower.includes('ai') || lower.includes('artificial')) {
-        variations.push('machine learning tutorial', 'artificial intelligence breakdown', 'ai agents langchain');
+        variations.push('machine learning tutorial', 'ai agents langchain');
       } else if (lower.includes('code') || lower.includes('program') || lower.includes('python') || lower.includes('dev')) {
-        variations.push(`${clean} project tutorial`, `${clean} deep dive architecture`, 'software engineering workflow');
+        variations.push(`${clean} project tutorial`, 'software engineering workflow');
       } else if (lower.includes('synthwave') || lower.includes('lofi') || lower.includes('ambient') || lower.includes('music')) {
-        variations.push(`${clean} radio beats`, `${clean} chill mix focus`, 'ambient soundscape deep work');
+        variations.push(`${clean} radio beats`, 'ambient soundscape deep work');
       } else if (lower.includes('minimal') || lower.includes('desk') || lower.includes('setup')) {
-        variations.push('minimal desk setup tour', 'aesthetic workspace productivity', 'mechanical keyboard build');
+        variations.push('minimal desk setup tour', 'aesthetic workspace productivity');
       } else if (lower.includes('productiv') || lower.includes('habit') || lower.includes('work')) {
-        variations.push('deep work habits routine', 'time management stoicism', 'notion second brain workflow');
+        variations.push('deep work habits routine', 'notion second brain workflow');
       } else if (lower.includes('science') || lower.includes('space') || lower.includes('physics')) {
-        variations.push(`${clean} discovery documentary`, 'quantum astrophysics nasa', 'space exploration cosmos');
+        variations.push(`${clean} discovery documentary`, 'space exploration cosmos');
       } else if (lower.includes('game') || lower.includes('gaming')) {
-        variations.push(`${clean} deep dive analysis`, 'indie game development showcase', 'retro gaming documentary');
+        variations.push(`${clean} deep dive analysis`, 'indie game development showcase');
       } else {
         variations.push(`${clean} deep dive`, `${clean} guide`);
       }
@@ -113,9 +239,10 @@
       return variations;
     }
 
-    /**
-     * Query YouTube internal search for a specific query
-     */
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fetching
+    // ─────────────────────────────────────────────────────────────────────────
+
     async fetchVideosForQuery(query, tagSource, isExplore = false) {
       const cleanQ = (query || '').trim();
       if (!cleanQ) return [];
@@ -133,17 +260,11 @@
             'X-YouTube-Client-Version': '2.20240101.00.00'
           }
         });
-
         if (!response.ok) return [];
 
         const html = await response.text();
         const videos = this.parseVideosFromHtml(html, tagSource || cleanQ, isExplore);
-
-        this.cachedVideos.set(cleanQ, {
-          videos,
-          timestamp: Date.now()
-        });
-
+        this.cachedVideos.set(cleanQ, { videos, timestamp: Date.now() });
         return videos;
       } catch (err) {
         console.warn('[VibeFeed] Error fetching videos for query:', cleanQ, err);
@@ -151,9 +272,6 @@
       }
     }
 
-    /**
-     * Parse all videoRenderers across ALL sections and shelves in ytInitialData
-     */
     parseVideosFromHtml(html, tagSource, isExplore) {
       try {
         const match = html.match(/var ytInitialData = ({.*?});<\/script>/s) ||
@@ -172,15 +290,14 @@
               this.extractVideoObject(item.videoRenderer, tagSource, results, seenIds, isExplore);
             }
             if (item.shelfRenderer?.content?.verticalListRenderer?.items) {
-              for (const subItem of item.shelfRenderer.content.verticalListRenderer.items) {
-                if (subItem.videoRenderer) {
-                  this.extractVideoObject(subItem.videoRenderer, tagSource, results, seenIds, isExplore);
+              for (const sub of item.shelfRenderer.content.verticalListRenderer.items) {
+                if (sub.videoRenderer) {
+                  this.extractVideoObject(sub.videoRenderer, tagSource, results, seenIds, isExplore);
                 }
               }
             }
           }
         }
-
         return results;
       } catch (err) {
         console.warn('[VibeFeed] Failed to parse YouTube search data:', err);
@@ -190,27 +307,21 @@
 
     extractVideoObject(v, tagSource, resultsList, seenIds, isExplore) {
       if (!v || !v.videoId || seenIds.has(v.videoId)) return;
-
       const title = v.title?.runs?.[0]?.text || '';
       if (!title) return;
 
       seenIds.add(v.videoId);
-
       const thumbList = v.thumbnail?.thumbnails || [];
       const bestThumb = thumbList.length > 0 ? thumbList[thumbList.length - 1].url : `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
       const avatar = v.channelThumbnailSupportedRenderers?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails?.[0]?.url || '';
-      const channel = v.ownerText?.runs?.[0]?.text || '';
-      const duration = v.lengthText?.simpleText || (v.badges?.some(b => b.metadataBadgeRenderer?.style?.includes('LIVE')) ? 'LIVE' : '');
-      const views = v.viewCountText?.simpleText || '';
-      const published = v.publishedTimeText?.simpleText || '';
 
       resultsList.push({
         id: v.videoId,
         title,
-        channel,
-        duration,
-        views,
-        published,
+        channel: v.ownerText?.runs?.[0]?.text || '',
+        duration: v.lengthText?.simpleText || (v.badges?.some(b => b.metadataBadgeRenderer?.style?.includes('LIVE')) ? 'LIVE' : ''),
+        views: v.viewCountText?.simpleText || '',
+        published: v.publishedTimeText?.simpleText || '',
         thumbnail: bestThumb,
         avatar,
         matchedKeyword: tagSource,
@@ -218,58 +329,49 @@
       });
     }
 
-    /**
-     * Weighted Preference Curation with Strict Diversity Guardrails
-     */
     async fetchAllPreferenceVideos() {
-      const keywords = this.preferences?.keywords || [];
-      if (keywords.length === 0) return [];
+      // Use only the currently selected keywords for fetching
+      const allKeywords = this.preferences?.keywords || [];
+      const activeKeywords = this.isAllSelected
+        ? allKeywords.slice(0, 8)
+        : [...this.selectedKeywords].slice(0, 8);
+
+      if (activeKeywords.length === 0) return [];
 
       const weightsMap = this.preferences?.keywordWeights || {};
-      const activeKeywords = keywords.slice(0, 8);
 
-      // 1. Calculate weights per keyword
-      // Base weight: 1.0. If watched frequently, weight rises up to 2.4 max
-      const keywordWeightList = activeKeywords.map(kw => {
-        const record = weightsMap[kw.toLowerCase()];
-        const weight = record?.weight || 1.0;
-        return { keyword: kw, weight };
-      });
+      const keywordWeightList = activeKeywords.map(kw => ({
+        keyword: kw,
+        weight: weightsMap[kw.toLowerCase()]?.weight || 1.0
+      }));
 
-      // Diversity Guardrail: Hard maximum share = 35%
-      // No matter how high the weight is, no single keyword can exceed 35% of query quota
-      const totalWeight = keywordWeightList.reduce((acc, item) => acc + item.weight, 0);
+      const totalWeight = keywordWeightList.reduce((acc, i) => acc + i.weight, 0);
       const queryPromises = [];
 
-      // 2. Fetch videos for active keywords based on normalized weighted quotas
       for (const item of keywordWeightList) {
         const rawShare = item.weight / (totalWeight || 1);
-        const cappedShare = Math.min(0.35, Math.max(0.12, rawShare)); // Between 12% and 35%
+        const cappedShare = Math.min(0.35, Math.max(0.12, rawShare));
         const numVariations = cappedShare > 0.22 ? 2 : 1;
-
         const expanded = this.expandKeywordQueries(item.keyword);
         for (let i = 0; i < numVariations && i < expanded.length; i++) {
           queryPromises.push(this.fetchVideosForQuery(expanded[i], item.keyword, false));
         }
       }
 
-      // 3. Exploration / Serendipity Quota (15% - 20% of feed for related discoveries)
+      // Exploration / serendipity quota
       if (window.VibeFeedRelatedSuggester) {
-        const explorationTopics = window.VibeFeedRelatedSuggester.getSuggestions(keywords, 2);
-        for (const expTopic of explorationTopics) {
-          queryPromises.push(this.fetchVideosForQuery(expTopic, expTopic, true));
+        const expTopics = window.VibeFeedRelatedSuggester.getSuggestionsFallback(allKeywords, 2);
+        for (const t of expTopics) {
+          queryPromises.push(this.fetchVideosForQuery(t, t, true));
         }
       }
 
       const resultsArray = await Promise.all(queryPromises);
-
-      // 4. Stratified Balanced Round-Robin Interleaving
-      // Guarantees high diversity: adjacent videos come from different topics
       const merged = [];
       const seenIds = new Set();
-      const maxLength = Math.max(...resultsArray.map(arr => arr.length), 0);
+      const maxLen = Math.max(...resultsArray.map(a => a.length), 0);
 
-      for (let i = 0; i < maxLength; i++) {
+      for (let i = 0; i < maxLen; i++) {
         for (const arr of resultsArray) {
           const v = arr[i];
           if (v && !seenIds.has(v.id)) {
@@ -282,9 +384,10 @@
       return merged;
     }
 
-    /**
-     * Injects the Apple-style "Curated Vibe Feed" shelf directly into YouTube Home
-     */
+    // ─────────────────────────────────────────────────────────────────────────
+    // Shelf Injection
+    // ─────────────────────────────────────────────────────────────────────────
+
     async injectCuratedShelf() {
       const isHome = window.location.pathname === '/' || window.location.pathname === '';
       if (!isHome || !this.preferences?.enabled || this.preferences?.feedCuration === false) {
@@ -292,14 +395,18 @@
         return;
       }
 
-      if (document.getElementById('vibefeed-curated-shelf')) {
-        return;
-      }
+      if (document.getElementById('vibefeed-curated-shelf')) return;
 
       const gridContainer = document.querySelector('ytd-rich-grid-renderer #contents, ytd-browse[page-subtype="home"] #contents');
       if (!gridContainer) {
         setTimeout(() => this.injectCuratedShelf(), 800);
         return;
+      }
+
+      // Initialise selection to all
+      if (this.selectedKeywords.size === 0) {
+        this.isAllSelected = true;
+        this.selectedKeywords = new Set(this.preferences.keywords || []);
       }
 
       this.shelfElement = document.createElement('div');
@@ -314,10 +421,10 @@
             </div>
           </div>
           <div class="vf-shelf-actions">
-            <div class="vf-filter-tabs" id="vf-shelf-tabs">
-              <!-- Dynamically populated -->
+            <div class="vf-dropdown-wrapper" id="vf-dropdown-wrapper">
+              <!-- Dropdown injected by renderDropdown() -->
             </div>
-            <button class="vf-refresh-btn" id="vf-shelf-refresh" title="Sync Latest Preferences & Refresh Feed">↻ Refresh</button>
+            <button class="vf-refresh-btn" id="vf-shelf-refresh" title="Refresh feed">↻ Refresh</button>
           </div>
         </div>
         <div class="vf-shelf-grid" id="vf-shelf-cards">
@@ -332,12 +439,18 @@
       `;
 
       gridContainer.insertBefore(this.shelfElement, gridContainer.firstChild);
-
-      // Render tabs and attach event listeners
-      this.renderShelfTabs();
+      this.renderDropdown();
       this.attachShelfEventListeners();
 
       await this.refreshShelfVideos();
+
+      // Close dropdown on outside click
+      document.addEventListener('click', () => {
+        if (this.dropdownOpen) {
+          this.dropdownOpen = false;
+          this.renderDropdown();
+        }
+      }, { capture: true });
     }
 
     attachShelfEventListeners() {
@@ -347,19 +460,12 @@
       if (refreshBtn) {
         refreshBtn.addEventListener('click', async () => {
           refreshBtn.classList.add('spinning');
-          
-          // 1. Fetch latest preferences directly from storage to pick up newly added/removed keywords!
           const latestPrefs = await new Promise(res => chrome.storage.local.get(null, res));
           this.setPreferences(latestPrefs);
-
-          // 2. Re-render tabs so added/removed keywords update immediately
-          this.renderShelfTabs();
-
-          // 3. Clear cache and re-fetch videos
           this.cachedVideos.clear();
           this.displayedCount = 18;
+          this.renderDropdown();
           await this.refreshShelfVideos();
-
           setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
         });
       }
@@ -372,6 +478,10 @@
         });
       }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Card Rendering
+    // ─────────────────────────────────────────────────────────────────────────
 
     async refreshShelfVideos() {
       const cardsContainer = document.getElementById('vf-shelf-cards');
@@ -394,29 +504,46 @@
       const counter = document.getElementById('vf-shelf-counter');
       if (!cardsContainer) return;
 
-      let list = [];
-      if (this.currentFilterTab === 'all') {
+      // Filter pool to only selected keywords
+      let list;
+      if (this.isAllSelected || this.selectedKeywords.size === 0) {
         list = this.currentVideoPool;
       } else {
-        const expanded = this.expandKeywordQueries(this.currentFilterTab);
-        const fetchedLists = await Promise.all(expanded.map(q => this.fetchVideosForQuery(q, this.currentFilterTab)));
-        list = fetchedLists.flat();
+        const selLower = new Set([...this.selectedKeywords].map(k => k.toLowerCase()));
+        list = this.currentVideoPool.filter(v =>
+          selLower.has(v.matchedKeyword?.toLowerCase()) || v.isExplore
+        );
+        // If filtered list is too small, fetch fresh for selected keywords
+        if (list.length < 6) {
+          const fetchPromises = [];
+          for (const kw of this.selectedKeywords) {
+            const expanded = this.expandKeywordQueries(kw);
+            fetchPromises.push(this.fetchVideosForQuery(expanded[0], kw, false));
+          }
+          const results = await Promise.all(fetchPromises);
+          const seenIds = new Set(list.map(v => v.id));
+          for (const arr of results) {
+            for (const v of arr) {
+              if (!seenIds.has(v.id)) {
+                seenIds.add(v.id);
+                list.push(v);
+              }
+            }
+          }
+        }
       }
 
       this.activeFilteredPool = list;
 
       if (!list || list.length === 0) {
-        cardsContainer.innerHTML = `
-          <div class="vf-empty-shelf">
-            <span>No videos found for this topic yet. Add more keywords or click refresh!</span>
-          </div>
-        `;
+        cardsContainer.innerHTML = `<div class="vf-empty-shelf"><span>No videos found for selected topics. Try different keywords or click Refresh!</span></div>`;
         if (footer) footer.style.display = 'none';
         return;
       }
 
       if (counter) {
-        counter.textContent = `${list.length} videos curated • Diverse & balanced`;
+        const selLabel = this.isAllSelected ? 'all vibes' : `${this.selectedKeywords.size} selected`;
+        counter.textContent = `${list.length} videos curated • ${selLabel} • diverse`;
       }
 
       this.renderCardsFromPool();
@@ -470,11 +597,9 @@
 
     attachVideoCardClicks(container) {
       container.querySelectorAll('.vf-video-card').forEach(card => {
-        card.addEventListener('click', (e) => {
+        card.addEventListener('click', () => {
           const videoId = card.getAttribute('data-video-id');
-          if (videoId) {
-            window.location.href = `/watch?v=${videoId}`;
-          }
+          if (videoId) window.location.href = `/watch?v=${videoId}`;
         });
       });
     }
@@ -487,18 +612,10 @@
   }
 
   function escapeHtml(str) {
-    return (str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+    return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
-
   function escapeAttr(str) {
-    return (str || '')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+    return (str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   window.VibeFeedInjector = FeedInjector;

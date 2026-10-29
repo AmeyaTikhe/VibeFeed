@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const toggleWatchWeights = document.getElementById('toggle-watch-weights');
   const toggleDiversityGuard = document.getElementById('toggle-diversity-guard');
   const btnResetWeights = document.getElementById('btn-reset-weights');
+  const toggleKeywordDecay = document.getElementById('toggle-keyword-decay');
+  const decayLogPreview = document.getElementById('decay-log-preview');
+  const btnRestoreDecayed = document.getElementById('btn-restore-decayed');
 
   const vibeHistoryContainer = document.getElementById('vibe-history-container');
   const emptyRadarHint = document.getElementById('empty-radar-hint');
@@ -109,6 +112,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       toggleAutoMode.checked = preferences.autoMode === true;
       updateAutoModeUI(preferences.autoMode === true);
     }
+
+    // Keyword Decay
+    if (toggleKeywordDecay) toggleKeywordDecay.checked = preferences.keywordDecay !== false;
+    renderDecayLog();
 
     // Render Lists
     renderKeywordsList();
@@ -452,6 +459,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  /**
+   * Render Keyword Decay log preview in Rules tab
+   */
+  function renderDecayLog() {
+    if (!decayLogPreview) return;
+    const log = Array.isArray(preferences.decayLog) ? preferences.decayLog : [];
+    if (log.length === 0) {
+      decayLogPreview.textContent = 'None removed yet';
+      if (btnRestoreDecayed) btnRestoreDecayed.style.display = 'none';
+      return;
+    }
+    const recent = log.slice(0, 3).map(e => e.kw).join(', ');
+    decayLogPreview.textContent = `Removed: ${recent}`;
+    if (btnRestoreDecayed) btnRestoreDecayed.style.display = 'inline';
+  }
+
   // Master Switch Event
   masterToggle.addEventListener('change', () => {
     const isEnabled = masterToggle.checked;
@@ -539,6 +562,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnResetWeights.textContent = '✓ Done';
         setTimeout(() => btnResetWeights.textContent = 'Reset', 1500);
       });
+    });
+  }
+
+  // Keyword Decay Toggle
+  if (toggleKeywordDecay) {
+    toggleKeywordDecay.addEventListener('change', () => {
+      save({ keywordDecay: toggleKeywordDecay.checked });
+    });
+  }
+
+  // Restore Decayed Keywords
+  if (btnRestoreDecayed) {
+    btnRestoreDecayed.addEventListener('click', () => {
+      const log = Array.isArray(preferences.decayLog) ? preferences.decayLog : [];
+      const toRestore = log.slice(0, 3).map(e => e.kw);
+      for (const kw of toRestore) addKeyword(kw);
+      save({ decayLog: log.slice(3) });
+      renderDecayLog();
     });
   }
 

@@ -30,26 +30,27 @@
     });
   }
 
-  // React to preference updates from popup or options page
+  // React to preference updates from popup or options page — auto-refresh shelf
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
       for (const [key, change] of Object.entries(changes)) {
         preferences[key] = change.newValue;
       }
       filterEngine.setPreferences(preferences);
-      feedInjector.setPreferences(preferences);
-      
-      // Re-filter or reset
+
       if (preferences.enabled === false) {
         filterEngine.resetAllCards();
         feedInjector.removeCuratedShelf();
       } else {
         processAllCards();
-        if (window.location.pathname === '/' || window.location.pathname === '') {
-          if (changes.keywords) {
-            feedInjector.updatePreferencesAndTabs(preferences);
-          } else {
+        const isHome = window.location.pathname === '/' || window.location.pathname === '';
+        if (isHome) {
+          if (!document.getElementById('vibefeed-curated-shelf')) {
+            feedInjector.setPreferences(preferences);
             feedInjector.injectCuratedShelf();
+          } else {
+            // Auto-refresh: called on any pref change (keyword add/remove, toggle, etc.)
+            feedInjector.onPreferencesChanged(preferences);
           }
         }
       }
@@ -65,7 +66,7 @@
           for (const tag of newTags) {
             const exists = (preferences.keywords || []).some(k => k.toLowerCase() === tag.toLowerCase());
             if (!exists) {
-              chrome.runtime.sendMessage({ action: 'ADD_KEYWORD', keyword: tag }).catch(() => {});
+              chrome.runtime.sendMessage({ action: 'ADD_KEYWORD', keyword: tag, autoAdded: true }).catch(() => {});
               // Log to autoModeLog in storage
               chrome.storage.local.get(['autoModeLog'], (data) => {
                 const log = Array.isArray(data.autoModeLog) ? data.autoModeLog : [];

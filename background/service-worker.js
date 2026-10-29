@@ -70,29 +70,101 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
   // Schedule auto-mode alarm (every 4 hours)
   chrome.alarms.create('vibefeed-auto-discover', { periodInMinutes: 240 });
+  // Schedule keyword decay check (every 24 hours)
+  chrome.alarms.create('vibefeed-keyword-decay', { periodInMinutes: 1440 });
 });
 
-// Auto Mode Alarm Handler
+// Auto Mode & Keyword Decay Alarm Handler
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name !== 'vibefeed-auto-discover') return;
+  // ── Auto-Discovery ──────────────────────────────────────────────────────
+  if (alarm.name === 'vibefeed-auto-discover') {
+    const prefs = await chrome.storage.local.get(null);
+    if (!prefs.autoMode) return;
 
-  const prefs = await chrome.storage.local.get(null);
-  if (!prefs.autoMode) return;
+    const keywords = prefs.keywords || [];
+    if (keywords.length === 0) return;
 
-  const keywords = prefs.keywords || [];
-  if (keywords.length === 0) return;
+    const lastRun = prefs.autoModeLastRun || 0;
+    if (Date.now() - lastRun < 3 * 60 * 60 * 1000) return;
 
-  // Throttle: don't run if last run was within 3 hours
-  const lastRun = prefs.autoModeLastRun || 0;
-  if (Date.now() - lastRun < 3 * 60 * 60 * 1000) return;
+    const tabs = await chrome.tabs.query({ url: '*://*.youtube.com/*', active: true });
+    for (const tab of tabs) {
+      try { await chrome.tabs.sendMessage(tab.id, { action: 'AUTO_DISCOVER' }); } catch {}
+    }
+  }
 
-  // Tell any active YouTube tab to run discovery via messaging
-  const tabs = await chrome.tabs.query({ url: '*://*.youtube.com/*', active: true });
-  for (const tab of tabs) {
-    try {
-      await chrome.tabs.sendMessage(tab.id, { action: 'AUTO_DISCOVER' });
-    } catch {
-      // Tab may not have content script active - that's fine
+  // ── Keyword Decay ───────────────────────────────────────────────────────
+  // Remove keywords that have low engagement over time.
+  // Rules:
+  //   - Keyword must have been added at least 7 days ago (tracked via keywordAddedAt)
+  //   - Weight < 1.05 (barely watched) AND last watched > 14 days ago (or never)
+  //   - Auto-added keywords (autoAdded: true) have lower tolerance (7 days no watch)
+  //   - Manually added keywords are given a longer grace period (21 days)
+  //   - Never remove a keyword if it's the ONLY one in the list
+  if (alarm.name === 'vibefeed-keyword-decay') {
+    const prefs = await chrome.storage.local.get(null);
+
+    // Skip if user disabled decay
+    if (prefs.keywordDecay === false) return;
+
+    const keywords = Array.isArray(prefs.keywords) ? [...prefs.keywords] : [];
+    if (keywords.length <= 1) return; // Never auto-remove the last keyword
+
+    const weights = prefs.keywordWeights || {};
+    const addedAt = prefs.keywordAddedAt || {};
+    const now = Date.now();
+    const DAY = 86400000;
+
+    const decayed = [];
+    const surviving = [];
+
+    for (const kw of keywords) {
+      const norm = kw.toLowerCase().trim();
+      const record = weights[norm] || {};
+      const weight = record.weight || 1.0;
+      const lastWatched = record.lastWatched || 0;
+      const addedTime = addedAt[norm] || now; // Default: pretend just added
+      const ageMs = now - addedTime;
+      const sinceWatched = lastWatched > 0 ? now - lastWatched : Infinity;
+      const isAutoAdded = record.autoAdded === true;
+
+      // Grace period: auto-added = 7 days, manual = 21 days
+      const gracePeriod = isAutoAdded ? 7 * DAY : 21 * DAY;
+
+      // Minimum age before decay can kick in
+      if (ageMs < gracePeriod) {
+        surviving.push(kw);
+        continue;
+      }
+
+      // Low-engagement threshold: weight barely above baseline AND not recently watched
+      const inactivityThreshold = isAutoAdded ? 7 * DAY : 14 * DAY;
+      const isLowEngagement = weight < 1.05 && sinceWatched > inactivityThreshold;
+
+      if (isLowEngagement) {
+        decayed.push(kw);
+      } else {
+        surviving.push(kw);
+      }
+    }
+
+    // Guard: always keep at least 1 keyword
+    if (surviving.length === 0) {
+      surviving.push(keywords[0]);
+      decayed.splice(decayed.indexOf(keywords[0]), 1);
+    }
+
+    if (decayed.length > 0) {
+      // Record decay log and update keywords
+      const decayLog = Array.isArray(prefs.decayLog) ? prefs.decayLog : [];
+      for (const kw of decayed) {
+        decayLog.unshift({ kw, reason: 'low_engagement', timestamp: now });
+      }
+      await chrome.storage.local.set({
+        keywords: surviving,
+        decayLog: decayLog.slice(0, 30)
+      });
+      console.log('[VibeFeed] Keyword decay removed:', decayed);
     }
   }
 });
@@ -112,19 +184,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'ADD_KEYWORD') {
     const keyword = (message.keyword || '').trim();
+    const isAutoAdded = Boolean(message.autoAdded);
     if (!keyword) {
       sendResponse({ success: false, reason: 'Empty keyword' });
       return true;
     }
 
-    chrome.storage.local.get(['keywords'], (data) => {
+    chrome.storage.local.get(['keywords', 'keywordAddedAt', 'keywordWeights'], (data) => {
       let keywords = Array.isArray(data.keywords) ? data.keywords : [];
       const lower = keyword.toLowerCase();
-      
+
       const exists = keywords.some(k => k.toLowerCase() === lower);
       if (!exists) {
         keywords.push(keyword);
-        chrome.storage.local.set({ keywords }, () => {
+        // Record when it was added
+        const addedAt = data.keywordAddedAt || {};
+        addedAt[lower] = Date.now();
+        // Mark auto-added keywords in weights so decay knows the tolerance
+        const weights = data.keywordWeights || {};
+        if (!weights[lower]) {
+          weights[lower] = { count: 0, weight: 1.0, lastWatched: 0, autoAdded: isAutoAdded };
+        } else {
+          weights[lower].autoAdded = weights[lower].autoAdded || isAutoAdded;
+        }
+        chrome.storage.local.set({ keywords, keywordAddedAt: addedAt, keywordWeights: weights }, () => {
           sendResponse({ success: true, added: keyword, keywords });
         });
       } else {
