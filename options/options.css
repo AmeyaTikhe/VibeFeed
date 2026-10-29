@@ -38,10 +38,23 @@ body.apple-dark {
    ========================================================================== */
 .sidebar {
   width: 260px;
+  flex-shrink: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   padding: 28px 18px;
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
 }
 
 .sidebar-header {
@@ -393,6 +406,13 @@ body.apple-dark {
   width: 44px;
   height: 24px;
   cursor: pointer;
+  flex-shrink: 0;
+}
+
+.apple-toggle.small {
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .apple-toggle input {
@@ -425,6 +445,13 @@ body.apple-dark {
   box-sizing: border-box;
 }
 
+.apple-toggle.small .toggle-slider::before {
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  top: 2px;
+}
+
 .apple-toggle input:checked + .toggle-slider {
   background-color: #FFFFFF;
   border-color: #FFFFFF;
@@ -432,6 +459,12 @@ body.apple-dark {
 
 .apple-toggle input:checked + .toggle-slider::before {
   transform: translateX(20px);
+  background-color: rgba(48, 209, 88, 0.85);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 8px rgba(48, 209, 88, 0.45);
+}
+
+.apple-toggle.small input:checked + .toggle-slider::before {
+  transform: translateX(16px);
   background-color: rgba(48, 209, 88, 0.85);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 8px rgba(48, 209, 88, 0.45);
 }
