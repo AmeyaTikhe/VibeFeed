@@ -807,13 +807,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Clear All Keywords
   clearAllKeywordsBtn.addEventListener('click', () => {
-    if (confirm('Clear all keywords from your preference list?')) {
-      save({ keywords: [] });
-      renderKeywordsList();
-      renderRelatedSuggestions();
-      updateFooterStats();
-      renderVibeRadar();
-    }
+    save({ keywords: [] });
+    renderKeywordsList();
+    renderRelatedSuggestions();
+    updateFooterStats();
+    renderVibeRadar();
   });
 
   // Clear Radar History
