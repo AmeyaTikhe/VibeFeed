@@ -120,13 +120,26 @@ if (hasAi && hasPython) {
   failed++;
 }
 
-console.log('\n--- Testing RelatedSuggester ---');
-const related = RelatedSuggester.getSuggestions(['coding', '#ai'], 6);
-console.log('Related suggestions for [coding, #ai]:', related);
+console.log('\n--- Testing RelatedSuggester (Fallback / Sync) ---');
+const related = RelatedSuggester.getSuggestionsFallback(['coding', '#ai'], 6);
+console.log('Fallback suggestions for [coding, #ai]:', related);
 if (related.length > 0 && !related.some(k => k.toLowerCase() === 'coding' || k.toLowerCase() === '#ai')) {
-  console.log('[PASS] RelatedSuggester generates distinct, relevant topics.');
+  console.log('[PASS] RelatedSuggester fallback generates distinct, relevant topics.');
 } else {
-  console.error('[FAIL] RelatedSuggester returned invalid or duplicate results.');
+  console.error('[FAIL] RelatedSuggester fallback returned invalid or duplicate results.');
+  failed++;
+}
+
+// Test IELTS fallback (should NOT suggest machine learning!)
+const ieltsFallback = RelatedSuggester.getSuggestionsFallback(['ielts'], 6);
+console.log('Fallback suggestions for [ielts]:', ieltsFallback);
+const hasIrrelevant = ieltsFallback.some(t =>
+  ['machine learning', 'calisthenics', 'astrophysics'].includes(t.toLowerCase())
+);
+if (!hasIrrelevant) {
+  console.log('[PASS] IELTS suggestions do not include wildly irrelevant topics.');
+} else {
+  console.error('[FAIL] IELTS suggestions included unrelated topics!');
   failed++;
 }
 

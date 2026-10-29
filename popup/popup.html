@@ -102,6 +102,35 @@
         </div>
       </section>
 
+      <!-- Auto Mode Card -->
+      <section class="section-card auto-mode-card">
+        <div class="auto-mode-header">
+          <div class="auto-mode-title-wrap">
+            <div class="auto-mode-icon">⚡</div>
+            <div>
+              <div class="auto-mode-title">Auto Vibe Mode</div>
+              <div class="auto-mode-sub">Quietly discovers and adds closely related keywords over time</div>
+            </div>
+          </div>
+          <label class="apple-toggle small">
+            <input type="checkbox" id="toggle-auto-mode">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="auto-mode-body" id="auto-mode-body" style="display: none;">
+          <div class="auto-mode-info">
+            <span class="auto-mode-badge">Active</span>
+            <span class="auto-mode-desc-text" id="auto-mode-status-text">Monitoring your preferences...</span>
+          </div>
+          <div class="auto-mode-log" id="auto-mode-log">
+            <!-- Showing auto-added keywords history -->
+          </div>
+          <div class="auto-mode-actions">
+            <button class="auto-run-now-btn" id="auto-run-now-btn">✦ Run Discovery Now</button>
+          </div>
+        </div>
+      </section>
+
       <!-- Visual Filter Style Selector & Curation Toggle -->
       <section class="style-toggle-card">
         <span class="style-label">Filter Visual Style</span>

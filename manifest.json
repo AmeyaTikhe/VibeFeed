@@ -43,7 +43,9 @@
   ],
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "alarms",
+    "tabs"
   ],
   "host_permissions": [
     "*://*.youtube.com/*"

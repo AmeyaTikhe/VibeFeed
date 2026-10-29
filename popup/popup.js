@@ -24,6 +24,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const relatedSuggestionsList = document.getElementById('related-suggestions-list');
   const refreshSuggestionsBtn = document.getElementById('refresh-suggestions-btn');
+  const toggleAutoMode = document.getElementById('toggle-auto-mode');
+  const autoModeBody = document.getElementById('auto-mode-body');
+  const autoModeStatusText = document.getElementById('auto-mode-status-text');
+  const autoModeLog = document.getElementById('auto-mode-log');
+  const autoRunNowBtn = document.getElementById('auto-run-now-btn');
 
   const toggleHideShorts = document.getElementById('toggle-hide-shorts');
   const toggleMatchChannel = document.getElementById('toggle-match-channel');
@@ -99,11 +104,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (toggleWatchWeights) toggleWatchWeights.checked = preferences.adaptiveWatchWeights !== false;
     if (toggleDiversityGuard) toggleDiversityGuard.checked = preferences.diversityGuardrail !== false;
 
+    // Auto Mode
+    if (toggleAutoMode) {
+      toggleAutoMode.checked = preferences.autoMode === true;
+      updateAutoModeUI(preferences.autoMode === true);
+    }
+
     // Render Lists
     renderKeywordsList();
     renderRelatedSuggestions();
     renderNegativeChips();
     renderVibeRadar();
+    renderAutoModeLog();
     updateFooterStats();
   }
 
@@ -163,13 +175,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
-   * Render Suggested Related Keywords below the preference list
+   * Render Suggested Related Keywords (async - uses live YouTube autocomplete)
    */
-  function renderRelatedSuggestions() {
+  async function renderRelatedSuggestions(showLoading = true) {
     if (!relatedSuggestionsList || !window.VibeFeedRelatedSuggester) return;
+
+    if (showLoading) {
+      relatedSuggestionsList.innerHTML = `<span class="suggestions-loading">✦ Fetching related vibes...</span>`;
+    }
+
+    let suggestions;
+    try {
+      suggestions = await window.VibeFeedRelatedSuggester.getSuggestions(preferences.keywords || [], 8);
+    } catch {
+      suggestions = window.VibeFeedRelatedSuggester.getSuggestionsFallback(preferences.keywords || [], 8);
+    }
+
     relatedSuggestionsList.innerHTML = '';
 
-    const suggestions = window.VibeFeedRelatedSuggester.getSuggestions(preferences.keywords || [], 8);
+    if (!suggestions || suggestions.length === 0) {
+      relatedSuggestionsList.innerHTML = `<span class="suggestions-empty">No suggestions available yet. Add some keywords first!</span>`;
+      return;
+    }
 
     suggestions.forEach(vibe => {
       const isHashtag = vibe.startsWith('#');
@@ -186,13 +213,97 @@ document.addEventListener('DOMContentLoaded', async () => {
         addKeyword(vibe);
         chip.classList.add('added');
         chip.querySelector('.chip-plus').textContent = '✓';
-        setTimeout(() => {
-          renderRelatedSuggestions();
-        }, 400);
+        setTimeout(() => renderRelatedSuggestions(), 500);
       });
 
       relatedSuggestionsList.appendChild(chip);
     });
+  }
+
+  // ============================================================
+  // Auto Mode
+  // ============================================================
+
+  function updateAutoModeUI(isActive) {
+    if (!autoModeBody) return;
+    autoModeBody.style.display = isActive ? 'block' : 'none';
+    renderAutoModeLog();
+  }
+
+  function renderAutoModeLog() {
+    if (!autoModeLog) return;
+    const log = Array.isArray(preferences.autoModeLog) ? preferences.autoModeLog : [];
+    if (log.length === 0) {
+      autoModeLog.innerHTML = '<div class="auto-log-empty">No auto-discoveries yet. Run discovery to start.</div>';
+      return;
+    }
+    autoModeLog.innerHTML = log.slice(0, 8).map(entry => `
+      <div class="auto-log-entry">
+        <span class="auto-log-sparkle">✦</span>
+        <span class="auto-log-tag">${escapeHtml(entry.tag)}</span>
+        <span class="auto-log-source">via "${escapeHtml(entry.source)}"</span>
+        <span class="auto-log-time">${formatRelativeTime(entry.timestamp)}</span>
+      </div>
+    `).join('');
+  }
+
+  async function runAutoDiscovery(isManual = false) {
+    if (!window.VibeFeedRelatedSuggester) return;
+    const kws = preferences.keywords || [];
+    if (kws.length === 0) return;
+
+    if (autoModeStatusText) autoModeStatusText.textContent = isManual ? '✦ Discovering...' : 'Running scheduled discovery...';
+    if (autoRunNowBtn) { autoRunNowBtn.disabled = true; autoRunNowBtn.textContent = '✦ Discovering...'; }
+
+    let newTags = [];
+    try {
+      newTags = await window.VibeFeedRelatedSuggester.autoDiscoverKeywords(kws);
+    } catch {
+      newTags = [];
+    }
+
+    const added = [];
+    const existingNorm = new Set(kws.map(k => k.toLowerCase()));
+
+    for (const tag of newTags) {
+      if (!existingNorm.has(tag.toLowerCase())) {
+        addKeyword(tag);
+        existingNorm.add(tag.toLowerCase());
+        added.push(tag);
+      }
+    }
+
+    // Record to auto mode log
+    if (added.length > 0) {
+      const log = Array.isArray(preferences.autoModeLog) ? preferences.autoModeLog : [];
+      const newEntries = added.map(tag => ({
+        tag,
+        source: kws[0] || 'your vibes',
+        timestamp: Date.now()
+      }));
+      const updatedLog = [...newEntries, ...log].slice(0, 20);
+      save({ autoModeLog: updatedLog, autoModeLastRun: Date.now() });
+    } else {
+      save({ autoModeLastRun: Date.now() });
+    }
+
+    if (autoModeStatusText) {
+      autoModeStatusText.textContent = added.length > 0
+        ? `✓ Added: ${added.join(', ')}`
+        : 'Nothing new to add right now.';
+    }
+    if (autoRunNowBtn) { autoRunNowBtn.disabled = false; autoRunNowBtn.textContent = '✦ Run Discovery Now'; }
+    renderAutoModeLog();
+    renderRelatedSuggestions(false);
+  }
+
+  function formatRelativeTime(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
   }
 
   function addKeyword(rawText) {
@@ -388,6 +499,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (refreshSuggestionsBtn) {
     refreshSuggestionsBtn.addEventListener('click', () => {
       renderRelatedSuggestions();
+    });
+  }
+
+  // Auto Mode Toggle
+  if (toggleAutoMode) {
+    toggleAutoMode.addEventListener('change', () => {
+      const isOn = toggleAutoMode.checked;
+      save({ autoMode: isOn });
+      updateAutoModeUI(isOn);
+      if (isOn) runAutoDiscovery(false);
+    });
+  }
+
+  // Run Discovery Now button
+  if (autoRunNowBtn) {
+    autoRunNowBtn.addEventListener('click', () => {
+      runAutoDiscovery(true);
     });
   }
 

@@ -67,6 +67,34 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   } catch (err) {
     console.warn('[VibeFeed] Could not set badge color:', err);
   }
+
+  // Schedule auto-mode alarm (every 4 hours)
+  chrome.alarms.create('vibefeed-auto-discover', { periodInMinutes: 240 });
+});
+
+// Auto Mode Alarm Handler
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== 'vibefeed-auto-discover') return;
+
+  const prefs = await chrome.storage.local.get(null);
+  if (!prefs.autoMode) return;
+
+  const keywords = prefs.keywords || [];
+  if (keywords.length === 0) return;
+
+  // Throttle: don't run if last run was within 3 hours
+  const lastRun = prefs.autoModeLastRun || 0;
+  if (Date.now() - lastRun < 3 * 60 * 60 * 1000) return;
+
+  // Tell any active YouTube tab to run discovery via messaging
+  const tabs = await chrome.tabs.query({ url: '*://*.youtube.com/*', active: true });
+  for (const tab of tabs) {
+    try {
+      await chrome.tabs.sendMessage(tab.id, { action: 'AUTO_DISCOVER' });
+    } catch {
+      // Tab may not have content script active - that's fine
+    }
+  }
 });
 
 // Handle incoming messages from content scripts and popup

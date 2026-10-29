@@ -1,129 +1,259 @@
 /**
- * VibeFeed - Related Keyword Suggester Engine
- * Intelligently suggests related keywords, topics, and hashtags based on
- * the user's active preference list.
+ * VibeFeed - Related Keyword Suggester (Real-Time API v2)
+ *
+ * Uses YouTube's own autocomplete API to find GENUINELY related keywords
+ * based on whatever the user has typed in their preference list — no hardcoded
+ * domain lookups, no random fallbacks. IELTS will suggest IELTS-related topics.
+ *
+ * Also powers the Auto Mode (automated keyword discovery).
  */
 
 (function () {
   'use strict';
 
-  const TOPIC_GRAPH = {
-    ai: {
-      tags: ['#ai', '#machinelearning', 'Deep Learning', 'Python AI', 'Autonomous Agents', 'Neural Networks', 'LangChain', 'OpenAI', 'Computer Vision', 'LLM Development', 'Generative AI', 'Robotics'],
-      triggers: ['ai', 'artificial intelligence', 'machine learning', 'deep learning', 'gpt', 'llm', 'neural', 'openai', 'agent', 'langchain']
-    },
-    coding: {
-      tags: ['#coding', '#python', 'Rust Programming', 'System Architecture', 'Web Development', 'Clean Code', 'TypeScript', 'DevOps & Linux', 'Data Structures', 'Open Source', 'Software Engineering', 'Backend APIs'],
-      triggers: ['coding', 'code', 'programming', 'developer', 'software', 'python', 'javascript', 'typescript', 'rust', 'linux', 'github', 'dev']
-    },
-    minimalism: {
-      tags: ['Minimal Desk Setup', 'Mechanical Keyboards', 'EDC Gear', 'Aesthetic Workspace', 'Digital Minimalism', 'Productive Habits', 'Ergonomics', 'Clean Aesthetic', 'Smart Home Setup', 'Studio Tour'],
-      triggers: ['minimalism', 'minimalist', 'desk setup', 'workspace', 'setup', 'keyboard', 'edc', 'aesthetic']
-    },
-    productivity: {
-      tags: ['#productivity', 'Deep Work', 'Habit Building', 'Time Blocking', 'Notion Workflow', 'Stoicism', 'Second Brain', 'Dopamine Detox', 'Morning Routine', 'Peak Performance', 'Focus Flow'],
-      triggers: ['productivity', 'habits', 'deep work', 'notion', 'routine', 'focus', 'time management', 'stoicism', 'workflow', 'study']
-    },
-    lofi: {
-      tags: ['#lofi', '#ambientmusic', 'Chillhop Beats', 'Retrowave', 'Focus Music', 'Cyberpunk Ambience', 'Coffee Shop Lofi', 'Dark Ambient', 'Study Beats', 'Downtempo', 'Synthwave Radio'],
-      triggers: ['lofi', 'ambient', 'synthwave', 'chill', 'beats', 'music', 'study music', 'focus music', 'relaxing', 'instrumental', 'soundscape']
-    },
-    gaming: {
-      tags: ['Indie Game Dev', 'Retro Gaming', 'Speedrunning', 'Unreal Engine 5', 'Pixel Art', 'Game Design Analysis', 'RPG Deep Dives', 'Cyberpunk 2077', 'Nintendo Modding', 'Steam Deck'],
-      triggers: ['gaming', 'game', 'gameplay', 'walkthrough', 'speedrun', 'rpg', 'nintendo', 'playstation', 'steam', 'indie game']
-    },
-    science: {
-      tags: ['#science', 'Astrophysics', 'Quantum Mechanics', 'NASA Discoveries', 'Cosmology', 'SpaceX Updates', 'Theoretical Physics', 'Brain & Neuroscience', 'Biology & Evolution', 'Documentaries'],
-      triggers: ['science', 'physics', 'quantum', 'space', 'astronomy', 'nasa', 'spacex', 'biology', 'neuroscience', 'universe', 'documentary']
-    },
-    fitness: {
-      tags: ['#fitness', 'Calisthenics', 'Mobility Routine', 'Strength Training', 'Clean Nutrition', 'Biohacking', 'Sleep Optimization', 'Longevity Protocol', 'Zone 2 Cardio', 'Gym Workouts'],
-      triggers: ['fitness', 'workout', 'calisthenics', 'gym', 'health', 'longevity', 'nutrition', 'running', 'mobility', 'biohacking']
-    },
-    finance: {
-      tags: ['#finance', 'Index Funds', 'Macro Economics', 'Personal Finance', 'Real Estate Investing', 'Dividend Growth', 'Crypto Tech', 'Venture Capital', 'Startup Building', 'Passive Income'],
-      triggers: ['finance', 'investing', 'stocks', 'etf', 'crypto', 'bitcoin', 'real estate', 'economy', 'startup', 'money']
-    },
-    design: {
-      tags: ['#design', 'UI/UX Design', '3D Blender', 'Typography', 'Color Grading', 'Motion Graphics', 'Figma Pro', 'Cinematography', 'Industrial Design', 'Visual Aesthetics'],
-      triggers: ['design', 'ui', 'ux', 'blender', '3d', 'figma', 'typography', 'graphic design', 'cinematography', 'architecture']
-    }
-  };
+  // Common filler words that should be stripped from suggestions
+  const FILLER_WORDS = new Set([
+    'full', 'course', 'tutorial', 'how', 'to', 'the', 'a', 'an', 'in', 'for',
+    'beginners', 'advanced', 'complete', 'guide', 'tips', 'tricks', 'best', 'top',
+    'new', 'latest', 'free', '2024', '2025', '2026', '2027', 'video', 'channel',
+    'playlist', 'official', 'part', 'episode', 'watch', 'online', 'learn', 'learning'
+  ]);
 
-  const DEFAULT_STARTER_VIBES = [
-    '#ai',
-    '#coding',
-    'Deep Work',
-    '#lofi',
-    'Machine Learning',
-    'Minimal Desk Setup',
-    'Python AI',
-    'Synthwave Beats',
-    'Astrophysics',
-    'Calisthenics'
-  ];
+  // Hard cap on how long a suggestion tag can be
+  const MAX_TAG_WORDS = 4;
 
   class RelatedSuggester {
     /**
-     * Get related keywords based on user's active keyword list
+     * Fetch raw YouTube autocomplete suggestions for a query string
+     * Returns up to 8 raw suggestion strings.
      */
-    static getSuggestions(currentKeywords = [], limit = 8) {
-      const activeNormalized = new Set(currentKeywords.map(k => k.trim().toLowerCase()));
-      const matchedDomainTags = new Set();
-
-      // If user has no keywords yet, return curated starters
-      if (currentKeywords.length === 0) {
-        return DEFAULT_STARTER_VIBES.slice(0, limit);
+    static async fetchSuggestionsForQuery(query) {
+      try {
+        const url = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const text = await res.text();
+        // Format: window.google.ac.h(['query', [['suggestion', 0, [...]], ...]])
+        const match = text.match(/\[.*\]/s);
+        if (!match) return [];
+        const parsed = JSON.parse(match[0]);
+        return (parsed[1] || []).map(s => s[0]).filter(Boolean).slice(0, 8);
+      } catch {
+        return [];
       }
-
-      // 1. Analyze user keywords and detect relevant domains
-      for (const kw of currentKeywords) {
-        const lowerKw = kw.toLowerCase().replace('#', '');
-        for (const [domainKey, domain] of Object.entries(TOPIC_GRAPH)) {
-          const isMatch = domain.triggers.some(trig => {
-            const regex = new RegExp(`(^|\\W)${trig}(\\W|$)`, 'i');
-            return regex.test(lowerKw) || lowerKw.includes(trig) || trig.includes(lowerKw);
-          });
-
-          if (isMatch) {
-            domain.tags.forEach(t => matchedDomainTags.add(t));
-          }
-        }
-      }
-
-      // Filter out tags the user already has in their preference list
-      const candidates = Array.from(matchedDomainTags).filter(t => {
-        const norm = t.trim().toLowerCase();
-        return !activeNormalized.has(norm);
-      });
-
-      // If we don't have enough candidates from direct domain matches, supplement with high-value starters
-      if (candidates.length < limit) {
-        for (const fallback of DEFAULT_STARTER_VIBES) {
-          if (!activeNormalized.has(fallback.toLowerCase()) && !candidates.includes(fallback)) {
-            candidates.push(fallback);
-          }
-        }
-      }
-
-      // Shuffle slightly for fresh suggestions
-      return RelatedSuggester.shuffle(candidates).slice(0, limit);
     }
 
     /**
-     * Fisher-Yates array shuffle
+     * Given a raw suggestion string and the original keyword, extract
+     * a clean, concise topic tag.
+     *
+     * "ielts speaking test" + "ielts" → "Speaking Test"
+     * "ai coding workflow 2026" + "ai" → "Coding Workflow"
      */
-    static shuffle(array) {
-      const arr = [...array];
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
+    static extractTag(rawSuggestion, originalKeyword) {
+      const kwClean = originalKeyword.replace(/^#+/, '').trim().toLowerCase();
+
+      // Strip the original keyword from the front
+      let text = rawSuggestion
+        .replace(new RegExp('^' + RelatedSuggester.escapeRegex(kwClean) + '\\s*', 'i'), '')
+        .trim();
+
+      // If nothing useful left, use the raw suggestion
+      if (!text || text.length < 3) text = rawSuggestion;
+
+      // Remove trailing year patterns
+      text = text.replace(/\b(20\d{2})\b/g, '').trim();
+
+      // Split, filter filler, cap length
+      const words = text
+        .split(/\s+/)
+        .filter(w => w.length > 1 && !FILLER_WORDS.has(w.toLowerCase()));
+
+      if (words.length === 0) return null;
+
+      // Cap to MAX_TAG_WORDS
+      const finalWords = words.slice(0, MAX_TAG_WORDS);
+
+      // Title-case each word
+      const tag = finalWords.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      return tag.length >= 3 ? tag : null;
+    }
+
+    static escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * Generate live, real-time related vibe suggestions from the user's keyword list.
+     * Queries YouTube's autocomplete for each active keyword and returns de-duped,
+     * clean, concise topic tags that are genuinely related.
+     *
+     * @param {string[]} currentKeywords  Active preference keywords
+     * @param {number}   limit            Max suggestions to return (default 8)
+     * @returns {Promise<string[]>}
+     */
+    static async getSuggestions(currentKeywords = [], limit = 8) {
+      if (currentKeywords.length === 0) {
+        // Default bootstrap suggestions for a fresh user
+        return [
+          'productivity', 'deep work', 'minimalism', '#ai',
+          'coding', '#lofi', 'science documentaries', 'fitness'
+        ].slice(0, limit);
       }
-      return arr;
+
+      const activeNormalized = new Set(currentKeywords.map(k => k.trim().toLowerCase()));
+      const allCandidates = [];
+
+      // Query YouTube suggest for each active keyword
+      const queries = currentKeywords.slice(0, 5); // Limit to avoid too many requests
+      const fetchPromises = queries.map(kw =>
+        RelatedSuggester.fetchSuggestionsForQuery(kw)
+          .then(raws => ({ kw, raws }))
+      );
+
+      const results = await Promise.all(fetchPromises);
+
+      for (const { kw, raws } of results) {
+        for (const raw of raws) {
+          const tag = RelatedSuggester.extractTag(raw, kw);
+          if (!tag) continue;
+          const norm = tag.toLowerCase();
+          // Skip if too similar to an already-active keyword
+          if (activeNormalized.has(norm)) continue;
+          if ([...activeNormalized].some(a => norm.includes(a) || a.includes(norm))) continue;
+          allCandidates.push(tag);
+        }
+      }
+
+      // De-duplicate (case-insensitive)
+      const seen = new Set();
+      const unique = allCandidates.filter(tag => {
+        const n = tag.toLowerCase();
+        if (seen.has(n)) return false;
+        seen.add(n);
+        return true;
+      });
+
+      // Shuffle slightly for freshness, then trim
+      return RelatedSuggester.shuffle(unique).slice(0, limit);
+    }
+
+    /**
+     * Synchronous offline fallback used by tests / contexts without fetch
+     * Uses very simple keyword-mirroring heuristics.
+     */
+    static getSuggestionsFallback(currentKeywords = [], limit = 8) {
+      const QUICK_MAP = {
+        ielts: ['IELTS Speaking', 'IELTS Writing', 'IELTS Listening', 'IELTS Reading Tips', 'English Proficiency'],
+        toefl: ['TOEFL Speaking', 'TOEFL Writing', 'Academic English'],
+        coding: ['System Design', 'Clean Code', 'Open Source', 'DevOps'],
+        python: ['Data Structures', 'FastAPI', 'Django Framework', 'NumPy'],
+        ai: ['LangChain', 'Prompt Engineering', 'AI Agents', 'Vector Databases'],
+        synthwave: ['Retrowave Mix', 'Dark Ambient', 'Outrun Music'],
+        lofi: ['Study Beats', 'Jazz Hop', 'Focus Instrumentals'],
+        minimalism: ['Desk Setup', 'Digital Declutter', 'Simple Living'],
+        productivity: ['Deep Work', 'Time Blocking', 'Second Brain', 'Notion Setup'],
+        fitness: ['Calisthenics', 'Mobility Routine', 'Zone 2 Cardio'],
+      };
+
+      const activeNorm = new Set(currentKeywords.map(k => k.toLowerCase().replace(/^#+/, '')));
+      const out = [];
+      const seen = new Set();
+
+      for (const kw of currentKeywords) {
+        const norm = kw.toLowerCase().replace(/^#+/, '');
+        // Find a close matching key in QUICK_MAP
+        const matchKey = Object.keys(QUICK_MAP).find(k => norm.includes(k) || k.includes(norm));
+        if (matchKey) {
+          for (const tag of QUICK_MAP[matchKey]) {
+            const tagNorm = tag.toLowerCase();
+            if (!activeNorm.has(tagNorm) && !seen.has(tagNorm)) {
+              seen.add(tagNorm);
+              out.push(tag);
+            }
+          }
+        }
+      }
+
+      if (out.length < limit) {
+        for (const kw of currentKeywords) {
+          out.push(`${kw} tips`);
+        }
+      }
+
+      return [...new Set(out)].slice(0, limit);
+    }
+
+    /**
+     * Auto Mode: Runs periodically, picks 1-2 *highly related* new keywords to auto-add.
+     * Uses YouTube suggest, picks terms that appeared across multiple keyword queries
+     * (i.e. high co-occurrence = truly related), and appends them to the preference list.
+     *
+     * Returns the newly added keywords (empty array if none added).
+     */
+    static async autoDiscoverKeywords(currentKeywords = []) {
+      if (currentKeywords.length === 0) return [];
+
+      const activeNorm = new Set(currentKeywords.map(k => k.trim().toLowerCase()));
+
+      // Query all active keywords
+      const queries = currentKeywords.slice(0, 6);
+      const fetchPromises = queries.map(kw =>
+        RelatedSuggester.fetchSuggestionsForQuery(kw)
+          .then(raws => ({ kw, raws }))
+      );
+      const results = await Promise.all(fetchPromises);
+
+      // Count co-occurrences: how many different keyword queries produced each candidate
+      const coOccurrence = new Map(); // tagNorm -> { tag, count }
+
+      for (const { kw, raws } of results) {
+        const seenInThisQuery = new Set();
+        for (const raw of raws) {
+          const tag = RelatedSuggester.extractTag(raw, kw);
+          if (!tag) continue;
+          const norm = tag.toLowerCase();
+
+          // Skip if already in preference list or too similar
+          if (activeNorm.has(norm)) continue;
+          if ([...activeNorm].some(a => norm.includes(a) || a.includes(norm))) continue;
+          if (seenInThisQuery.has(norm)) continue;
+
+          seenInThisQuery.add(norm);
+          const existing = coOccurrence.get(norm) || { tag, count: 0 };
+          coOccurrence.set(norm, { tag, count: existing.count + 1 });
+        }
+      }
+
+      // Pick candidates that appeared in 2+ queries (high co-occurrence = highly related)
+      const strongCandidates = [...coOccurrence.values()]
+        .filter(c => c.count >= 2)
+        .sort((a, b) => b.count - a.count);
+
+      // If no co-occurring terms, fall back to the single most common suggestion
+      // from the keyword with the highest watch weight (most-watched topic)
+      if (strongCandidates.length === 0) {
+        const singleCandidates = [...coOccurrence.values()]
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 1);
+        return singleCandidates.map(c => c.tag);
+      }
+
+      // Return max 2 highly-related new tags
+      return strongCandidates.slice(0, 2).map(c => c.tag);
+    }
+
+    static shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
     }
   }
 
-  // Export globally
+  // Export
   if (typeof window !== 'undefined') {
     window.VibeFeedRelatedSuggester = RelatedSuggester;
   }

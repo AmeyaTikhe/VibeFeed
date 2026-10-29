@@ -57,6 +57,31 @@
     }
   });
 
+  // Handle background messages (e.g. alarm-triggered Auto Discovery)
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'AUTO_DISCOVER') {
+      if (window.VibeFeedRelatedSuggester && preferences.autoMode) {
+        window.VibeFeedRelatedSuggester.autoDiscoverKeywords(preferences.keywords || []).then(newTags => {
+          for (const tag of newTags) {
+            const exists = (preferences.keywords || []).some(k => k.toLowerCase() === tag.toLowerCase());
+            if (!exists) {
+              chrome.runtime.sendMessage({ action: 'ADD_KEYWORD', keyword: tag }).catch(() => {});
+              // Log to autoModeLog in storage
+              chrome.storage.local.get(['autoModeLog'], (data) => {
+                const log = Array.isArray(data.autoModeLog) ? data.autoModeLog : [];
+                log.unshift({ tag, source: preferences.keywords?.[0] || 'auto', timestamp: Date.now() });
+                chrome.storage.local.set({ autoModeLog: log.slice(0, 20), autoModeLastRun: Date.now() });
+              });
+            }
+          }
+          sendResponse({ success: true, added: newTags });
+        }).catch(() => sendResponse({ success: false }));
+        return true; // Async response
+      }
+      sendResponse({ success: false });
+    }
+  });
+
   /**
    * Scan and filter all video cards in the DOM
    */
