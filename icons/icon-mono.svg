@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Nothing OS Style Dot-Matrix Glyph -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="#0C0C0C" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+  <circle cx="38" cy="38" r="5" fill="#FFFFFF"/>
+  <circle cx="55" cy="38" r="5" fill="#FFFFFF"/>
+  <circle cx="72" cy="38" r="5" fill="#FFFFFF"/>
+  <circle cx="89" cy="38" r="5" fill="#FFFFFF"/>
+  <circle cx="38" cy="55" r="5" fill="#FFFFFF"/>
+  <circle cx="89" cy="55" r="5" fill="#555555"/>
+  <circle cx="38" cy="72" r="5" fill="#FFFFFF"/>
+  <circle cx="55" cy="72" r="5" fill="#FFFFFF"/>
+  <circle cx="72" cy="72" r="5" fill="#FFFFFF"/>
+  <circle cx="89" cy="72" r="5" fill="#FFFFFF"/>
+  <circle cx="38" cy="89" r="5" fill="#FFFFFF"/>
+  <circle cx="89" cy="89" r="5" fill="#FFFFFF"/>
+  <circle cx="64" cy="55" r="7" fill="#E5E5E5"/>
+</svg>
