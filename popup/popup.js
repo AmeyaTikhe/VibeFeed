@@ -128,13 +128,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateStatusLabel(enabled) {
     if (enabled) {
-      statusText.textContent = 'Active Filter';
+      statusText.innerHTML = '<span class="status-indicator"></span>ONLINE';
       statusText.classList.remove('disabled');
-      footerStats.textContent = 'Filtering active';
+      footerStats.textContent = 'SYSTEM ACTIVE';
     } else {
-      statusText.textContent = 'Paused';
+      statusText.innerHTML = '<span class="status-indicator"></span>PAUSED';
       statusText.classList.add('disabled');
-      footerStats.textContent = 'Filtering paused';
+      footerStats.textContent = 'SYSTEM PAUSED';
     }
   }
 
@@ -375,7 +375,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!relatedSuggestionsList) return;
 
     if (showLoading) {
-      relatedSuggestionsList.innerHTML = `<span class="suggestions-loading">✦ Fetching related vibes...</span>`;
+      relatedSuggestionsList.innerHTML = `
+        <div class="nothing-fizz-wrapper">
+          <div class="nothing-fizz-particles"></div>
+          <div class="nothing-fizz-dots"></div>
+          <div class="nothing-fizz-gradient"></div>
+          <div class="nothing-fizz-content">
+            <div class="nothing-fizz-badge">
+              <span class="nothing-fizz-pulse"></span>
+              <span>SYNTHESIZING VIBES</span>
+            </div>
+            <div class="nothing-fizz-sub">Reading semantic frequency...</div>
+          </div>
+        </div>
+      `;
     }
 
     const keywords = preferences.keywords || [];
