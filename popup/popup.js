@@ -181,10 +181,195 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // ── Suggestion helpers ────────────────────────────────────────────────────
+
+  const SUGG_FILLER = new Set([
+    'full','course','tutorial','how','to','the','a','an','in','for','and','or',
+    'beginners','advanced','complete','guide','tips','tricks','best','top',
+    'new','latest','free','2024','2025','2026','2027','video','channel',
+    'playlist','watch','learn','learning','official','part','episode','with','is','are'
+  ]);
+
+  // Normalise: strip #, split camelCase, lowercase
+  function suggNormalise(kw) {
+    return kw.replace(/^#+/, '').trim()
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+      .toLowerCase().trim();
+  }
+
+  // Fetch one autocomplete query with a hard per-request timeout
+  async function fetchAutocompleteDirect(query, timeoutMs = 3000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const url = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) return [];
+      const text = await res.text();
+      const match = text.match(/\[.*\]/s);
+      if (!match) return [];
+      const parsed = JSON.parse(match[0]);
+      return (parsed[1] || []).map(s => s[0]).filter(Boolean).slice(0, 10);
+    } catch { return []; }
+    finally { clearTimeout(timer); }
+  }
+
+  // Extract a clean tag from a raw autocomplete suggestion
+  function suggExtractTag(raw, baseQuery) {
+    const esc  = baseQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let   text = raw.replace(new RegExp('^' + esc + '\\s*', 'i'), '').trim();
+    if (!text || text.length < 2) text = raw.trim();
+    text = text.replace(/\b(20\d{2})\b/g, '').trim();
+    const words = text.split(/\s+/).filter(w => w.length > 1 && !SUGG_FILLER.has(w.toLowerCase())).slice(0, 5);
+    if (words.length === 0) return null;
+    const tag = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    return tag.length >= 3 ? tag : null;
+  }
+
   /**
-   * Render Suggested Related Keywords
-   * Routes through service worker (which can reach suggestqueries.google.com),
-   * because the popup page CSP blocks direct cross-origin fetches.
+   * Fetch live suggestions directly from suggestqueries.google.com.
+   * The popup has host_permissions for this URL so no SW proxy needed.
+   * Each request has a 3s timeout; total wall-clock cap is 8s.
+   */
+  async function fetchLiveSuggestions(keywords, limit = 12) {
+    if (!keywords || keywords.length === 0) return [];
+
+    const weightsMap = preferences.keywordWeights || {};
+    const activeNorm = new Set(keywords.map(k => suggNormalise(k)));
+
+    // Cluster by first word (max 5 chars) to find dominant theme
+    const clusters = new Map();
+    for (const kw of keywords) {
+      const norm      = suggNormalise(kw);
+      const firstWord = norm.split(/\s+/)[0];
+      const ck        = firstWord.length > 5 ? firstWord.slice(0, 5) : firstWord;
+      const wt        = weightsMap[norm]?.weight || 1.0;
+      if (!clusters.has(ck)) {
+        clusters.set(ck, { baseQuery: firstWord, members: [], totalWeight: 0 });
+      }
+      const cl = clusters.get(ck);
+      cl.members.push(kw);
+      cl.totalWeight += wt;
+      // Keep baseQuery as shortest first-word (most general)
+      if (firstWord.length <= cl.baseQuery.length) cl.baseQuery = firstWord;
+    }
+
+    // Build query plan: dominant cluster gets proportionally more slots (max 6 total)
+    const totalWeight = [...clusters.values()].reduce((s, c) => s + c.totalWeight, 0);
+    const rawPlan = [];
+    for (const cl of clusters.values()) {
+      const budget = Math.max(1, Math.round((cl.totalWeight / (totalWeight || 1)) * 6));
+      rawPlan.push({ query: cl.baseQuery, baseQuery: cl.baseQuery, clusterWeight: cl.totalWeight });
+      if (budget >= 2) {
+        for (const kw of cl.members.slice(0, budget - 1)) {
+          const q = suggNormalise(kw);
+          if (q !== cl.baseQuery) {
+            rawPlan.push({ query: q, baseQuery: cl.baseQuery, clusterWeight: cl.totalWeight });
+          }
+        }
+      }
+    }
+
+    // Deduplicate
+    const seenQ = new Set();
+    const queryPlan = rawPlan.filter(p => seenQ.has(p.query) ? false : (seenQ.add(p.query), true));
+
+    // Fetch all in parallel — all have per-request 3s timeouts, plus an 8s total cap
+    let results;
+    try {
+      results = await Promise.race([
+        Promise.all(queryPlan.map(p => fetchAutocompleteDirect(p.query).then(raws => ({ ...p, raws })))),
+        new Promise(resolve => setTimeout(() => resolve(null), 8000))
+      ]);
+    } catch { results = null; }
+
+    if (!results) return []; // timed out
+
+    // Score by co-occurrence + cluster weight
+    const seenNorms = new Set(activeNorm);
+    const coScore   = new Map();
+    for (const { raws, baseQuery, clusterWeight } of results) {
+      const seenInQ = new Set();
+      for (const raw of raws) {
+        if (!raw.toLowerCase().trim().startsWith(baseQuery.toLowerCase().trim())) continue;
+        const tag = suggExtractTag(raw, baseQuery);
+        if (!tag) continue;
+        const norm = tag.toLowerCase();
+        if ([...seenNorms].some(a => norm === a || norm.includes(a) || a.includes(norm))) continue;
+        if (seenInQ.has(norm)) continue;
+        seenInQ.add(norm);
+        const ex = coScore.get(norm) || { tag, score: 0, count: 0 };
+        coScore.set(norm, { tag, score: ex.score + clusterWeight, count: ex.count + 1 });
+      }
+    }
+
+    const ranked = [...coScore.values()].sort((a, b) =>
+      b.score !== a.score ? b.score - a.score : b.count - a.count
+    );
+    // Light shuffle within top tier for freshness
+    const top = ranked.slice(0, limit * 2);
+    for (let i = top.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [top[i], top[j]] = [top[j], top[i]];
+    }
+    return top.slice(0, limit).map(c => c.tag);
+  }
+
+  /**
+   * Instant offline fallback — shown if live fetch fails or returns nothing
+   */
+  function getFallbackSuggestions(keywords) {
+    if (!keywords || keywords.length === 0) return [];
+    const QUICK_MAP = {
+      ielts: ['Band Score', 'Academic Module', 'General Training', 'Reading Strategies', 'Exam Prep'],
+      toefl: ['TOEFL Speaking', 'TOEFL Writing', 'Academic English', 'Integrated Task'],
+      coding: ['System Design', 'Clean Code', 'Open Source', 'DevOps', 'Algorithms'],
+      python: ['Data Structures', 'FastAPI', 'Django', 'NumPy', 'Automation Scripts'],
+      ai: ['LangChain', 'Prompt Engineering', 'AI Agents', 'Vector Databases', 'Fine-tuning'],
+      synthwave: ['Retrowave Mix', 'Dark Ambient', 'Outrun Music', 'Chillwave'],
+      lofi: ['Study Beats', 'Jazz Hop', 'Focus Instrumentals', 'Ambient Chill'],
+      minimalism: ['Desk Setup', 'Digital Declutter', 'Simple Living', 'Capsule Wardrobe'],
+      productivity: ['Deep Work', 'Time Blocking', 'Second Brain', 'Notion Setup', 'Focus Flow'],
+      fitness: ['Calisthenics', 'Mobility Routine', 'Zone 2 Cardio', 'Strength Training'],
+      music: ['Music Theory', 'Ear Training', 'Composition', 'DAW Tutorial'],
+      design: ['UI Design', 'Typography', 'Color Theory', 'Figma Tutorial'],
+      finance: ['Personal Finance', 'Investing Basics', 'Stock Market', 'Budgeting'],
+    };
+    const activeNorm = new Set(keywords.map(k => suggNormalise(k)));
+    const out = []; const seen = new Set();
+
+    // Weight by cluster: keywords that appear more get their fallbacks first
+    const clusterCounts = new Map();
+    for (const kw of keywords) {
+      const norm = suggNormalise(kw);
+      const matchKey = Object.keys(QUICK_MAP).find(k => norm.includes(k) || k.includes(norm.split(' ')[0]));
+      if (matchKey) clusterCounts.set(matchKey, (clusterCounts.get(matchKey) || 0) + 1);
+    }
+    const sortedKeys = [...clusterCounts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+
+    for (const matchKey of sortedKeys) {
+      for (const tag of QUICK_MAP[matchKey]) {
+        const tn = tag.toLowerCase();
+        if (!activeNorm.has(tn) && !seen.has(tn)) { seen.add(tn); out.push(tag); }
+      }
+    }
+    // Generic hints for unmatched keywords
+    for (const kw of keywords) {
+      const norm = suggNormalise(kw);
+      if (![...clusterCounts.keys()].some(k => norm.includes(k) || k.includes(norm.split(' ')[0]))) {
+        for (const suffix of [' practice', ' techniques', ' strategies']) {
+          const tag = norm.charAt(0).toUpperCase() + norm.slice(1) + suffix;
+          const tn = tag.toLowerCase();
+          if (!activeNorm.has(tn) && !seen.has(tn)) { seen.add(tn); out.push(tag); }
+        }
+      }
+    }
+    return out.slice(0, 12);
+  }
+
+  /**
+   * Render Suggested Related Keywords — fetches live, falls back instantly
    */
   async function renderRelatedSuggestions(showLoading = true) {
     if (!relatedSuggestionsList) return;
@@ -195,33 +380,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const keywords = preferences.keywords || [];
 
-    // Ask service worker to proxy the autocomplete fetch
-    let suggestions = await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        { action: 'FETCH_SUGGESTIONS', keywords, limit: 12, keywordWeights: preferences.keywordWeights || {} },
-        (resp) => {
-          if (chrome.runtime.lastError || !resp?.success || !resp.suggestions?.length) {
-            // Fallback: mirror keywords with simple suffix hints
-            resolve(getFallbackSuggestions(keywords));
-          } else {
-            resolve(resp.suggestions);
-          }
-        }
-      );
-    });
+    // Show fallback immediately after 1s if live fetch hasn't resolved yet
+    let resolved = false;
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        const fb = getFallbackSuggestions(keywords);
+        if (fb.length > 0) renderSuggestionChips(fb);
+      }
+    }, 1500);
 
-    // Last-resort guard
+    let suggestions = [];
+    try {
+      suggestions = await fetchLiveSuggestions(keywords, 12);
+    } catch { /* ignore */ }
+    finally { clearTimeout(fallbackTimer); }
+
+    resolved = true;
+
     if (!suggestions || suggestions.length === 0) {
       suggestions = getFallbackSuggestions(keywords);
     }
 
-    relatedSuggestionsList.innerHTML = '';
+    renderSuggestionChips(suggestions);
+  }
 
+  function renderSuggestionChips(suggestions) {
+    relatedSuggestionsList.innerHTML = '';
     if (!suggestions || suggestions.length === 0) {
       relatedSuggestionsList.innerHTML = `<span class="suggestions-empty">Add some keywords first to see suggestions!</span>`;
       return;
     }
-
     suggestions.forEach(vibe => {
       const isHashtag = vibe.startsWith('#');
       const chip = document.createElement('button');
@@ -231,7 +419,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         <span class="chip-plus">+</span>
         <span class="chip-text">${escapeHtml(vibe)}</span>
       `;
-
       chip.addEventListener('click', (e) => {
         e.stopPropagation();
         addKeyword(vibe);
@@ -239,49 +426,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         chip.querySelector('.chip-plus').textContent = '✓';
         setTimeout(() => renderRelatedSuggestions(), 500);
       });
-
       relatedSuggestionsList.appendChild(chip);
     });
-  }
-
-  /**
-   * Offline fallback: generate reasonable suggestions by appending sub-topic suffixes
-   */
-  function getFallbackSuggestions(keywords) {
-    if (!keywords || keywords.length === 0) return [];
-    const QUICK_MAP = {
-      ielts: ['IELTS Speaking', 'IELTS Writing', 'IELTS Listening', 'IELTS Reading Tips', 'English Proficiency'],
-      toefl: ['TOEFL Speaking', 'TOEFL Writing', 'Academic English'],
-      coding: ['System Design', 'Clean Code', 'Open Source', 'DevOps'],
-      python: ['Data Structures', 'FastAPI', 'Django Framework', 'NumPy'],
-      ai: ['LangChain', 'Prompt Engineering', 'AI Agents', 'Vector Databases'],
-      synthwave: ['Retrowave Mix', 'Dark Ambient', 'Outrun Music'],
-      lofi: ['Study Beats', 'Jazz Hop', 'Focus Instrumentals'],
-      minimalism: ['Desk Setup', 'Digital Declutter', 'Simple Living'],
-      productivity: ['Deep Work', 'Time Blocking', 'Second Brain', 'Notion Setup'],
-      fitness: ['Calisthenics', 'Mobility Routine', 'Zone 2 Cardio'],
-    };
-    const activeNorm = new Set(keywords.map(k => k.toLowerCase().replace(/^#+/, '')));
-    const out = [];
-    const seen = new Set();
-    for (const kw of keywords) {
-      const norm = kw.toLowerCase().replace(/^#+/, '');
-      const matchKey = Object.keys(QUICK_MAP).find(k => norm.includes(k) || k.includes(norm));
-      if (matchKey) {
-        for (const tag of QUICK_MAP[matchKey]) {
-          const tn = tag.toLowerCase();
-          if (!activeNorm.has(tn) && !seen.has(tn)) { seen.add(tn); out.push(tag); }
-        }
-      } else {
-        // Generic suffix hints
-        for (const suffix of [' explained', ' tutorial', ' deep dive']) {
-          const tag = kw.replace(/^#+/, '') + suffix;
-          const tn = tag.toLowerCase();
-          if (!activeNorm.has(tn) && !seen.has(tn)) { seen.add(tn); out.push(tag); }
-        }
-      }
-    }
-    return out.slice(0, 8);
   }
 
   // ============================================================
