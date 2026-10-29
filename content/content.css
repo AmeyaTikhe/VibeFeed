@@ -1,0 +1,338 @@
+/* ==========================================================================
+   VibeFeed - Apple Dark Mode Content Stylesheet
+   Designed with Cupertino precision: frosted glass, SF typography, micro-interactions
+   ========================================================================== */
+
+/* Frosted Glass Blur Mode for YouTube Video Cards */
+.vibefeed-frosted-card {
+  position: relative !important;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  overflow: hidden !important;
+  border-radius: 14px !important;
+}
+
+.vibefeed-frosted-card > *:not(.vibefeed-frosted-badge) {
+  filter: blur(14px) brightness(0.4) saturate(0.8) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: filter 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.vibefeed-frosted-card:hover > *:not(.vibefeed-frosted-badge) {
+  filter: blur(0px) brightness(1) saturate(1) !important;
+  pointer-events: auto !important;
+  user-select: auto !important;
+}
+
+.vibefeed-frosted-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.vibefeed-frosted-card:hover .vibefeed-frosted-badge {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.92);
+}
+
+.vibefeed-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(22, 22, 28, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  color: #F5F5F7;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  padding: 6px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.vibefeed-sparkle {
+  color: #64D2FF;
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   Watch Page Floating Vibe Suggestion HUD (Apple Floating Card)
+   ========================================================================== */
+#vibefeed-watch-hud {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 2200;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  background: rgba(18, 18, 24, 0.82);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  padding: 16px 18px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  color: #F5F5F7;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: vibefeed-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vibefeed-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+#vibefeed-watch-hud.vibefeed-minimized {
+  width: auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+#vibefeed-watch-hud.vibefeed-minimized .vibefeed-hud-body,
+#vibefeed-watch-hud.vibefeed-minimized .vibefeed-hud-footer {
+  display: none !important;
+}
+
+.vibefeed-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+#vibefeed-watch-hud.vibefeed-minimized .vibefeed-hud-header {
+  margin-bottom: 0;
+}
+
+.vibefeed-hud-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vibefeed-hud-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0A84FF, #64D2FF);
+  color: white;
+  font-size: 11px;
+  box-shadow: 0 2px 8px rgba(10, 132, 255, 0.4);
+}
+
+.vibefeed-hud-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: #FFFFFF;
+}
+
+.vibefeed-hud-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vibefeed-hud-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #A1A1A6;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vibefeed-hud-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+  transform: scale(1.08);
+}
+
+.vibefeed-hud-subtitle {
+  font-size: 11px;
+  color: #8E8E93;
+  margin-bottom: 12px;
+  line-height: 1.35;
+}
+
+.vibefeed-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.vibefeed-chips-container::-webkit-scrollbar {
+  width: 4px;
+}
+.vibefeed-chips-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.vibefeed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #E5E5EA;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.vibefeed-chip:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+}
+
+.vibefeed-chip:active {
+  transform: scale(0.96);
+}
+
+.vibefeed-chip.vibefeed-chip-hashtag {
+  color: #64D2FF;
+  border-color: rgba(100, 210, 255, 0.22);
+}
+
+.vibefeed-chip.vibefeed-chip-added {
+  background: rgba(48, 209, 88, 0.15) !important;
+  border-color: rgba(48, 209, 88, 0.4) !important;
+  color: #30D158 !important;
+  pointer-events: none;
+}
+
+.vibefeed-chip-plus {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.vibefeed-hud-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+}
+
+.vibefeed-hud-status {
+  font-size: 10.5px;
+  color: #8E8E93;
+}
+
+.vibefeed-add-all-btn {
+  background: #0A84FF;
+  color: #FFFFFF;
+  border: none;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 10px rgba(10, 132, 255, 0.35);
+}
+
+.vibefeed-add-all-btn:hover {
+  background: #0077ED;
+  transform: scale(1.03);
+}
+
+.vibefeed-add-all-btn:active {
+  transform: scale(0.96);
+}
+
+/* ==========================================================================
+   Home Feed Floating Quick Status Pill
+   ========================================================================== */
+#vibefeed-feed-pill {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 2200;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(18, 18, 24, 0.86);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 7px 15px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #F5F5F7;
+  user-select: none;
+}
+
+#vibefeed-feed-pill:hover {
+  background: rgba(26, 26, 34, 0.94);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.vibefeed-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #30D158; /* Apple Emerald Green */
+  box-shadow: 0 0 8px #30D158;
+}
+
+.vibefeed-pill-dot.disabled {
+  background: #8E8E93;
+  box-shadow: none;
+}
+
+.vibefeed-pill-text {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.vibefeed-pill-count {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #64D2FF;
+}

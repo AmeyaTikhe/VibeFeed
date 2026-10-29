@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeFeed Preferences & Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body class="apple-dark">
+  <div class="settings-wrapper">
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-icon">
+          <svg viewBox="0 0 128 128" width="28" height="28">
+            <rect x="4" y="4" width="120" height="120" rx="26" fill="#1C1C24" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+            <rect x="30" y="34" width="68" height="8" rx="4" fill="#64D2FF"/>
+            <rect x="42" y="52" width="44" height="8" rx="4" fill="#0A84FF"/>
+            <rect x="54" y="70" width="20" height="8" rx="4" fill="#BF5AF2"/>
+            <circle cx="64" cy="92" r="5" fill="#30D158"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="sidebar-title">VibeFeed</h1>
+          <span class="sidebar-sub">Cupertino Curator</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#general" class="nav-item active" data-section="general">
+          <span class="nav-icon">⚙</span>
+          <span>General & Display</span>
+        </a>
+        <a href="#starter-packs" class="nav-item" data-section="starter-packs">
+          <span class="nav-icon">✦</span>
+          <span>Vibe Starter Packs</span>
+        </a>
+        <a href="#backup" class="nav-item" data-section="backup">
+          <span class="nav-icon">⇪</span>
+          <span>Backup & Sync</span>
+        </a>
+        <a href="#about" class="nav-item" data-section="about">
+          <span class="nav-icon">ⓘ</span>
+          <span>About & Launch</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="footer-note">Designed in Cupertino aesthetic</span>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="content-panel">
+
+      <!-- Section 1: General & Display -->
+      <section class="settings-section active" id="sec-general">
+        <div class="section-title-bar">
+          <h2>General & Display Preferences</h2>
+          <p>Customize how YouTube feed filtering behaves and appears on screen.</p>
+        </div>
+
+        <div class="card-group">
+          <!-- Filter Engine Master -->
+          <div class="card-row">
+            <div>
+              <div class="card-label">Filter Engine Status</div>
+              <div class="card-desc">Globally activate or pause the YouTube feed filtering engine.</div>
+            </div>
+            <label class="apple-toggle">
+              <input type="checkbox" id="opt-master-toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="card-divider"></div>
+
+          <!-- Visual Style -->
+          <div class="card-row">
+            <div>
+              <div class="card-label">Filtering Appearance</div>
+              <div class="card-desc">Choose between completely removing cards or blurring with frosted glass.</div>
+            </div>
+            <select id="opt-visual-style" class="apple-select">
+              <option value="hide">Clean Hide (Collapses cards)</option>
+              <option value="blur">Apple Frosted Glass (Blur with hover reveal)</option>
+            </select>
+          </div>
+
+          <div class="card-divider"></div>
+
+          <!-- YouTube Shorts -->
+          <div class="card-row">
+            <div>
+              <div class="card-label">Hide Shorts Shelves</div>
+              <div class="card-desc">Automatically hide YouTube Shorts shelves and reels to maximize focus.</div>
+            </div>
+            <label class="apple-toggle">
+              <input type="checkbox" id="opt-hide-shorts">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="card-divider"></div>
+
+          <!-- Floating Badges -->
+          <div class="card-row">
+            <div>
+              <div class="card-label">In-Page Floating Quick HUD</div>
+              <div class="card-desc">Show the subtle floating status pill on YouTube home feed.</div>
+            </div>
+            <label class="apple-toggle">
+              <input type="checkbox" id="opt-floating-badge" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="card-divider"></div>
+
+          <!-- Watch Page Suggestions -->
+          <div class="card-row">
+            <div>
+              <div class="card-label">Watch Page Vibe Suggestions</div>
+              <div class="card-desc">Automatically analyze videos you watch and suggest matching interest chips.</div>
+            </div>
+            <label class="apple-toggle">
+              <input type="checkbox" id="opt-watch-suggest" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Scope of Matching -->
+        <h3 class="subsection-title">Match Fields</h3>
+        <div class="card-group">
+          <div class="checkbox-grid">
+            <label class="apple-checkbox-label">
+              <input type="checkbox" id="opt-match-title" checked>
+              <span>Video Title</span>
+            </label>
+            <label class="apple-checkbox-label">
+              <input type="checkbox" id="opt-match-channel" checked>
+              <span>Channel Name</span>
+            </label>
+            <label class="apple-checkbox-label">
+              <input type="checkbox" id="opt-match-desc" checked>
+              <span>Description / Badges</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Vibe Starter Packs -->
+      <section class="settings-section" id="sec-starter-packs">
+        <div class="section-title-bar">
+          <h2>Curated Vibe Starter Packs</h2>
+          <p>Quickly seed your preference list with hand-crafted interest bundles designed for focus.</p>
+        </div>
+
+        <div class="starter-grid">
+          <!-- Deep Work -->
+          <div class="starter-card">
+            <div class="starter-header">
+              <div class="starter-icon" style="background: linear-gradient(135deg, #0A84FF, #64D2FF);">💻</div>
+              <div>
+                <div class="starter-name">Deep Work & Code</div>
+                <div class="starter-tags-preview">#coding, #ai, python, rust, minimalism</div>
+              </div>
+            </div>
+            <p class="starter-desc">Filter for programming, machine learning, systems architecture, and engineering deep dives.</p>
+            <button class="starter-apply-btn" data-pack="code">Apply Starter Pack</button>
+          </div>
+
+          <!-- Ambient & Chill -->
+          <div class="starter-card">
+            <div class="starter-header">
+              <div class="starter-icon" style="background: linear-gradient(135deg, #BF5AF2, #FF375F);">🎧</div>
+              <div>
+                <div class="starter-name">Ambient & Lo-Fi Flow</div>
+                <div class="starter-tags-preview">#lofi, synthwave, ambient music, chillhop</div>
+              </div>
+            </div>
+            <p class="starter-desc">Transform your YouTube into a serene background audio haven for studying and flow state.</p>
+            <button class="starter-apply-btn" data-pack="lofi">Apply Starter Pack</button>
+          </div>
+
+          <!-- Science & Cosmos -->
+          <div class="starter-card">
+            <div class="starter-header">
+              <div class="starter-icon" style="background: linear-gradient(135deg, #FF9F0A, #FFD60A);">🪐</div>
+              <div>
+                <div class="starter-name">Cosmos & Science</div>
+                <div class="starter-tags-preview">#science, astronomy, quantum physics, nasa</div>
+              </div>
+            </div>
+            <p class="starter-desc">Curate a feed of scientific discoveries, astrophysics, quantum theory, and high-fidelity documentaries.</p>
+            <button class="starter-apply-btn" data-pack="science">Apply Starter Pack</button>
+          </div>
+
+          <!-- Mind & Growth -->
+          <div class="starter-card">
+            <div class="starter-header">
+              <div class="starter-icon" style="background: linear-gradient(135deg, #30D158, #64D2FF);">🌿</div>
+              <div>
+                <div class="starter-name">Mindset & High Agency</div>
+                <div class="starter-tags-preview">#productivity, habits, stoicism, deep work</div>
+              </div>
+            </div>
+            <p class="starter-desc">Clean away brain-rot and replace it with habits, personal agency, mental clarity, and fitness routines.</p>
+            <button class="starter-apply-btn" data-pack="mindset">Apply Starter Pack</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Backup & Sync -->
+      <section class="settings-section" id="sec-backup">
+        <div class="section-title-bar">
+          <h2>Backup & Data Portability</h2>
+          <p>Export your curated keywords and negative rules or transfer them to another browser.</p>
+        </div>
+
+        <div class="card-group">
+          <div class="card-row">
+            <div>
+              <div class="card-label">Export Preferences</div>
+              <div class="card-desc">Download your active preferences, keywords, and rules as a JSON file.</div>
+            </div>
+            <button class="apple-button secondary" id="btn-export-json">Export JSON</button>
+          </div>
+
+          <div class="card-divider"></div>
+
+          <div class="card-row">
+            <div>
+              <div class="card-label">Import Preferences</div>
+              <div class="card-desc">Restore your preference list from a previously exported JSON file.</div>
+            </div>
+            <div>
+              <input type="file" id="file-import-input" accept=".json" style="display: none;">
+              <button class="apple-button secondary" id="btn-import-trigger">Choose File</button>
+            </div>
+          </div>
+
+          <div class="card-divider"></div>
+
+          <div class="card-row">
+            <div>
+              <div class="card-label">Reset to Defaults</div>
+              <div class="card-desc">Reset all keywords and settings back to initial factory values.</div>
+            </div>
+            <button class="apple-button danger" id="btn-reset-defaults">Reset All</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: About & Launch -->
+      <section class="settings-section" id="sec-about">
+        <div class="section-title-bar">
+          <h2>About VibeFeed</h2>
+          <p>Architected for Google Chrome, Microsoft Edge, Brave, and Mozilla Firefox.</p>
+        </div>
+
+        <div class="card-group">
+          <div class="card-row">
+            <div>
+              <div class="card-label">Extension Version</div>
+              <div class="card-desc">VibeFeed Manifest V3 • Release 1.0.0</div>
+            </div>
+            <span class="version-tag">Production Ready</span>
+          </div>
+
+          <div class="card-divider"></div>
+
+          <div class="card-row">
+            <div>
+              <div class="card-label">Local Storage Footprint</div>
+              <div class="card-desc" id="storage-footprint-text">Calculating usage...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tip-banner">
+          <div class="tip-icon">💡</div>
+          <div class="tip-content">
+            <strong>How Vibe Suggestions Work:</strong> When watching any YouTube video, VibeFeed automatically analyzes the video's title, channel, description, and hashtags to extract the exact thematic essence. You can add suggested vibes with one tap directly on YouTube without opening any menu!
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="toast" class="apple-toast">Preferences saved</div>
+
+  <script src="options.js"></script>
+</body>
+</html>

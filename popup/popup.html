@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeFeed</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body class="apple-dark">
+  <div class="popup-container">
+    
+    <!-- Top Bar: Header & Master Switch -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 128 128" width="22" height="22">
+            <rect x="4" y="4" width="120" height="120" rx="26" fill="#1C1C24" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+            <rect x="30" y="34" width="68" height="8" rx="4" fill="#64D2FF"/>
+            <rect x="42" y="52" width="44" height="8" rx="4" fill="#0A84FF"/>
+            <rect x="54" y="70" width="20" height="8" rx="4" fill="#BF5AF2"/>
+            <circle cx="64" cy="92" r="5" fill="#30D158"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">VibeFeed</span>
+          <span class="brand-version" id="status-text">Active Filter</span>
+        </div>
+      </div>
+
+      <!-- iOS Cupertino Master Toggle -->
+      <label class="apple-toggle">
+        <input type="checkbox" id="master-toggle" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </header>
+
+    <!-- iOS Segmented Control Navigation -->
+    <nav class="segmented-control">
+      <button class="segment-btn active" data-tab="tab-feed">
+        <span class="segment-icon">☵</span>
+        <span>My Feed</span>
+      </button>
+      <button class="segment-btn" data-tab="tab-vibe">
+        <span class="segment-icon">✦</span>
+        <span>Vibe Radar</span>
+        <span class="radar-dot" id="radar-badge"></span>
+      </button>
+      <button class="segment-btn" data-tab="tab-settings">
+        <span class="segment-icon">⚙</span>
+        <span>Rules</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: My Feed Preferences -->
+    <main class="tab-content active" id="tab-feed">
+      
+      <!-- Quick Input Field -->
+      <div class="input-card">
+        <div class="input-wrapper">
+          <span class="input-icon">#</span>
+          <input type="text" id="keyword-input" placeholder="Add keyword or topic (e.g. #ai, synthwave)..." autocomplete="off" spellcheck="false">
+          <button id="add-keyword-btn" class="input-submit-btn" title="Add Keyword">
+            <span>Add</span>
+          </button>
+        </div>
+        <div class="input-tip">Tip: Prefix with <kbd>#</kbd> for hashtags or type any topic phrase.</div>
+      </div>
+
+      <!-- Preference Chips Section -->
+      <section class="section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-title">Preference List</span>
+            <span class="count-badge" id="keywords-count">0</span>
+          </div>
+          <button class="action-link" id="clear-all-keywords">Clear</button>
+        </div>
+
+        <div class="chips-grid" id="keywords-list">
+          <!-- Dynamic Keyword Chips Injected Here -->
+        </div>
+
+        <div class="empty-state" id="empty-keywords-hint" style="display: none;">
+          <div class="empty-icon">✦</div>
+          <div class="empty-text">No preferences added yet.</div>
+          <div class="empty-sub">Type a keyword above or watch videos to discover vibes!</div>
+        </div>
+      </section>
+
+      <!-- Visual Filter Style Selector -->
+      <section class="style-toggle-card">
+        <span class="style-label">Filter Visual Style</span>
+        <div class="pill-segmented" id="visual-style-group">
+          <button class="pill-btn active" data-style="hide">Clean Hide</button>
+          <button class="pill-btn" data-style="blur">Frosted Glass</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- TAB 2: Vibe Radar (Suggested Interests from Watched Videos) -->
+    <main class="tab-content" id="tab-vibe">
+      <section class="section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-title">Watch History Vibes</span>
+            <span class="count-badge" id="radar-count">0</span>
+          </div>
+          <button class="action-link" id="clear-radar-history">Clear History</button>
+        </div>
+        <p class="section-desc">Interests and vibes suggested based on videos you recently watched:</p>
+
+        <div class="vibe-history-list" id="vibe-history-container">
+          <!-- Dynamically populated from watched videos -->
+        </div>
+
+        <div class="empty-state" id="empty-radar-hint" style="display: none;">
+          <div class="empty-icon">🎧</div>
+          <div class="empty-text">No vibes detected yet.</div>
+          <div class="empty-sub">Watch any YouTube video to automatically extract its vibe and suggested interests.</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 3: Rules & Blacklist -->
+    <main class="tab-content" id="tab-settings">
+      
+      <!-- Filter Mode Whitelist / Blacklist -->
+      <section class="section-card">
+        <div class="setting-row">
+          <div class="setting-text">
+            <div class="setting-title">Filter Mode</div>
+            <div class="setting-sub">Whitelist shows only matched videos; Blacklist hides matches.</div>
+          </div>
+          <div class="pill-segmented" id="filter-mode-group">
+            <button class="pill-btn active" data-mode="whitelist">Whitelist</button>
+            <button class="pill-btn" data-mode="blacklist">Blacklist</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Negative Keywords / Anti-Clickbait -->
+      <section class="section-card">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <span class="section-title">Negative Keywords (Always Block)</span>
+            <span class="count-badge" id="negative-count">0</span>
+          </div>
+        </div>
+        <div class="input-wrapper small">
+          <input type="text" id="negative-input" placeholder="e.g. clickbait, prank, reaction...">
+          <button id="add-negative-btn" class="input-submit-btn">Add</button>
+        </div>
+        <div class="chips-grid" id="negative-chips-list">
+          <!-- Negative tags here -->
+        </div>
+      </section>
+
+      <!-- Toggles List -->
+      <section class="section-card">
+        <div class="setting-toggle-row">
+          <div>
+            <div class="setting-title">Hide YouTube Shorts</div>
+            <div class="setting-sub">Remove shorts shelves and reels from your feed</div>
+          </div>
+          <label class="apple-toggle small">
+            <input type="checkbox" id="toggle-hide-shorts">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <div class="setting-toggle-row">
+          <div>
+            <div class="setting-title">Match Channel Names</div>
+            <div class="setting-sub">Include channel authors in keyword matching</div>
+          </div>
+          <label class="apple-toggle small">
+            <input type="checkbox" id="toggle-match-channel" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <div class="setting-toggle-row">
+          <div>
+            <div class="setting-title">Watch Page Vibe HUD</div>
+            <div class="setting-sub">Show floating suggestion card on video watch pages</div>
+          </div>
+          <label class="apple-toggle small">
+            <input type="checkbox" id="toggle-watch-hud" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer Status -->
+    <footer class="app-footer">
+      <div class="stats-pill">
+        <span class="pulse-dot"></span>
+        <span id="footer-stats">Filtering enabled</span>
+      </div>
+      <button id="open-options-btn" class="options-icon-btn" title="Detailed Settings & Export">
+        <span>Options ↗</span>
+      </button>
+    </footer>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
