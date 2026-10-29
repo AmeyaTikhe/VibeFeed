@@ -445,6 +445,16 @@
   font-weight: 600;
 }
 
+.vf-tab-btn.is-priority {
+  border: 1px solid rgba(10, 132, 255, 0.28);
+}
+
+.vf-tab-pulse {
+  color: #64D2FF;
+  font-size: 10px;
+  margin-right: 3px;
+}
+
 .vf-refresh-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -564,6 +574,12 @@
   padding: 3px 8px;
   border-radius: 999px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.vf-vibe-tag.is-explore {
+  background: rgba(30, 20, 40, 0.88);
+  border-color: rgba(191, 90, 242, 0.35);
+  color: #BF5AF2;
 }
 
 .vf-card-details {

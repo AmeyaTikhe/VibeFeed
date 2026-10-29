@@ -46,7 +46,11 @@
       } else {
         processAllCards();
         if (window.location.pathname === '/' || window.location.pathname === '') {
-          feedInjector.injectCuratedShelf();
+          if (changes.keywords) {
+            feedInjector.updatePreferencesAndTabs(preferences);
+          } else {
+            feedInjector.injectCuratedShelf();
+          }
         }
       }
       updateFloatingFeedPill();
@@ -182,6 +186,18 @@
       const vibes = window.VibeFeedAnalyzer.analyze(meta);
 
       if (vibes && vibes.length > 0) {
+        // Check which user preference keywords match this watched video to adaptively weight favorites
+        if (preferences.adaptiveWatchWeights !== false && Array.isArray(preferences.keywords)) {
+          const fullContext = `${meta.videoTitle} ${meta.channelName} ${meta.description} ${(meta.explicitHashtags || []).join(' ')}`;
+          const matchedKws = preferences.keywords.filter(kw => filterEngine.matchesKeyword(fullContext, kw));
+          if (matchedKws.length > 0) {
+            chrome.runtime.sendMessage({
+              action: 'INCREMENT_KEYWORD_WEIGHT',
+              matchedKeywords: matchedKws
+            }).catch(() => {});
+          }
+        }
+
         // Record vibe in recent watch history
         chrome.runtime.sendMessage({
           action: 'RECORD_VIBE',

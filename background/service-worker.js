@@ -35,6 +35,9 @@ const DEFAULT_PREFERENCES = {
   hideShorts: false,
   showFloatingBadge: true,
   autoSuggestOnWatch: true,
+  adaptiveWatchWeights: true, // Learn and prioritize recurring interests from watch history
+  diversityGuardrail: true,   // Ensure diverse topics with max cap so one topic never dominates
+  keywordWeights: {},         // { [kw]: { count: number, weight: number, lastWatched: number } }
   stats: {
     totalFiltered: 0,
     sessionFiltered: 0
@@ -120,6 +123,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.storage.local.set({ recentVibes: vibes }, () => {
         sendResponse({ success: true });
       });
+    });
+    return true;
+  }
+
+  if (message.action === 'INCREMENT_KEYWORD_WEIGHT') {
+    const matched = message.matchedKeywords || [];
+    if (!Array.isArray(matched) || matched.length === 0) {
+      sendResponse({ success: false });
+      return true;
+    }
+
+    chrome.storage.local.get(['keywordWeights'], (data) => {
+      const weights = data.keywordWeights || {};
+      for (const kw of matched) {
+        const key = kw.toLowerCase().trim();
+        const currentCount = weights[key]?.count || 0;
+        const newCount = currentCount + 1;
+        // Diminishing returns weight formula: capped at 2.4 so no single keyword ever exceeds diversity limits
+        const calculatedWeight = Math.min(2.4, 1.0 + Math.log10(newCount + 1) * 1.2);
+        weights[key] = {
+          count: newCount,
+          weight: Number(calculatedWeight.toFixed(2)),
+          lastWatched: Date.now()
+        };
+      }
+      chrome.storage.local.set({ keywordWeights: weights }, () => {
+        sendResponse({ success: true, weights });
+      });
+    });
+    return true;
+  }
+
+  if (message.action === 'RESET_KEYWORD_WEIGHTS') {
+    chrome.storage.local.set({ keywordWeights: {} }, () => {
+      sendResponse({ success: true });
     });
     return true;
   }

@@ -402,6 +402,22 @@ body.apple-dark {
   color: #64D2FF;
 }
 
+.preference-chip.is-elevated {
+  border-color: rgba(100, 210, 255, 0.32);
+  background: rgba(10, 132, 255, 0.08);
+}
+
+.chip-affinity-sparkle {
+  color: #64D2FF;
+  font-size: 10.5px;
+  animation: pulse-sparkle 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-sparkle {
+  from { opacity: 0.6; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1.15); }
+}
+
 .preference-chip.is-negative {
   border-color: rgba(255, 69, 58, 0.25);
 }

@@ -1,7 +1,8 @@
 /**
- * VibeFeed - Feed Injector Engine (Enhanced V2)
- * Actively fetches and injects large batches of preference-matching videos
- * directly into the YouTube home feed with query expansion and pagination.
+ * VibeFeed - Feed Injector Engine (Adaptive V3)
+ * Implements weighted preference curation based on watch history,
+ * strict diversity guardrails, exploration/discovery quotas,
+ * and live synchronization of preference changes on refresh.
  */
 
 (function () {
@@ -12,19 +13,77 @@
       this.cachedVideos = new Map(); // query -> array of video objects
       this.injectedIds = new Set();
       this.currentVideoPool = [];
-      this.displayedCount = 18; // Generous default: show 18-24 videos
+      this.activeFilteredPool = [];
+      this.displayedCount = 18;
       this.shelfElement = null;
       this.currentFilterTab = 'all';
       this.preferences = null;
-      this.isLoadingMore = false;
     }
 
     setPreferences(prefs) {
-      this.preferences = prefs;
+      this.preferences = prefs || {};
     }
 
     /**
-     * Expand a keyword into multiple high-signal query variations
+     * Updates the shelf tabs dynamically when preferences change
+     */
+    updatePreferencesAndTabs(newPrefs) {
+      this.setPreferences(newPrefs);
+      if (!this.shelfElement) return;
+
+      this.renderShelfTabs();
+      this.refreshShelfVideos();
+    }
+
+    /**
+     * Renders or re-renders the topic tabs in the shelf header
+     */
+    renderShelfTabs() {
+      if (!this.shelfElement) return;
+      const tabsContainer = this.shelfElement.querySelector('#vf-shelf-tabs');
+      if (!tabsContainer) return;
+
+      const keywords = this.preferences?.keywords || [];
+      
+      // If current filter tab was deleted, reset to 'all'
+      const lowerKeywords = keywords.map(k => k.toLowerCase());
+      if (this.currentFilterTab !== 'all' && !lowerKeywords.includes(this.currentFilterTab.toLowerCase())) {
+        this.currentFilterTab = 'all';
+      }
+
+      const tabsHtml = `
+        <button class="vf-tab-btn ${this.currentFilterTab === 'all' ? 'active' : ''}" data-kw="all">All Vibes</button>
+        ${keywords.slice(0, 7).map(k => {
+          const isActive = this.currentFilterTab.toLowerCase() === k.toLowerCase();
+          const weightInfo = this.preferences?.keywordWeights?.[k.toLowerCase()];
+          const isPriority = weightInfo && weightInfo.weight > 1.3;
+          return `
+            <button class="vf-tab-btn ${isActive ? 'active' : ''} ${isPriority ? 'is-priority' : ''}" data-kw="${escapeAttr(k)}">
+              ${isPriority ? '<span class="vf-tab-pulse">✦</span>' : ''}
+              <span>${escapeHtml(k)}</span>
+            </button>
+          `;
+        }).join('')}
+      `;
+
+      tabsContainer.innerHTML = tabsHtml;
+
+      // Re-attach tab click events
+      tabsContainer.querySelectorAll('.vf-tab-btn').forEach(tab => {
+        tab.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          tabsContainer.querySelectorAll('.vf-tab-btn').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          this.currentFilterTab = tab.getAttribute('data-kw');
+          this.displayedCount = 18;
+          await this.renderCardsForCurrentTab();
+        });
+      });
+    }
+
+    /**
+     * Expand a keyword into multiple contextual queries
      */
     expandKeywordQueries(keyword) {
       const clean = (keyword || '').trim().replace(/^#+/, '');
@@ -33,7 +92,6 @@
       const lower = clean.toLowerCase();
       const variations = [clean];
 
-      // Smart semantic query expansion
       if (lower.includes('ai') || lower.includes('artificial')) {
         variations.push('machine learning tutorial', 'artificial intelligence breakdown', 'ai agents langchain');
       } else if (lower.includes('code') || lower.includes('program') || lower.includes('python') || lower.includes('dev')) {
@@ -58,11 +116,10 @@
     /**
      * Query YouTube internal search for a specific query
      */
-    async fetchVideosForQuery(query, originalTag) {
+    async fetchVideosForQuery(query, tagSource, isExplore = false) {
       const cleanQ = (query || '').trim();
       if (!cleanQ) return [];
 
-      // Check cache (cached for 15 minutes)
       const cached = this.cachedVideos.get(cleanQ);
       if (cached && (Date.now() - cached.timestamp < 15 * 60 * 1000)) {
         return cached.videos;
@@ -80,7 +137,7 @@
         if (!response.ok) return [];
 
         const html = await response.text();
-        const videos = this.parseVideosFromHtml(html, originalTag || cleanQ);
+        const videos = this.parseVideosFromHtml(html, tagSource || cleanQ, isExplore);
 
         this.cachedVideos.set(cleanQ, {
           videos,
@@ -97,7 +154,7 @@
     /**
      * Parse all videoRenderers across ALL sections and shelves in ytInitialData
      */
-    parseVideosFromHtml(html, tagSource) {
+    parseVideosFromHtml(html, tagSource, isExplore) {
       try {
         const match = html.match(/var ytInitialData = ({.*?});<\/script>/s) ||
                       html.match(/ytInitialData\s*=\s*({.+?});/);
@@ -111,15 +168,13 @@
         for (const section of sections) {
           const items = section.itemSectionRenderer?.contents || [];
           for (const item of items) {
-            // Direct videoRenderer
             if (item.videoRenderer) {
-              this.extractVideoObject(item.videoRenderer, tagSource, results, seenIds);
+              this.extractVideoObject(item.videoRenderer, tagSource, results, seenIds, isExplore);
             }
-            // ShelfRenderer contents (e.g. "Latest from...", "People also watched")
             if (item.shelfRenderer?.content?.verticalListRenderer?.items) {
               for (const subItem of item.shelfRenderer.content.verticalListRenderer.items) {
                 if (subItem.videoRenderer) {
-                  this.extractVideoObject(subItem.videoRenderer, tagSource, results, seenIds);
+                  this.extractVideoObject(subItem.videoRenderer, tagSource, results, seenIds, isExplore);
                 }
               }
             }
@@ -133,7 +188,7 @@
       }
     }
 
-    extractVideoObject(v, tagSource, resultsList, seenIds) {
+    extractVideoObject(v, tagSource, resultsList, seenIds, isExplore) {
       if (!v || !v.videoId || seenIds.has(v.videoId)) return;
 
       const title = v.title?.runs?.[0]?.text || '';
@@ -141,13 +196,9 @@
 
       seenIds.add(v.videoId);
 
-      // Best thumbnail
       const thumbList = v.thumbnail?.thumbnails || [];
       const bestThumb = thumbList.length > 0 ? thumbList[thumbList.length - 1].url : `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
-
-      // Avatar
       const avatar = v.channelThumbnailSupportedRenderers?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails?.[0]?.url || '';
-
       const channel = v.ownerText?.runs?.[0]?.text || '';
       const duration = v.lengthText?.simpleText || (v.badges?.some(b => b.metadataBadgeRenderer?.style?.includes('LIVE')) ? 'LIVE' : '');
       const views = v.viewCountText?.simpleText || '';
@@ -162,32 +213,58 @@
         published,
         thumbnail: bestThumb,
         avatar,
-        matchedKeyword: tagSource
+        matchedKeyword: tagSource,
+        isExplore: Boolean(isExplore)
       });
     }
 
     /**
-     * Fetch a large, diverse pool of preference-matching videos
+     * Weighted Preference Curation with Strict Diversity Guardrails
      */
     async fetchAllPreferenceVideos() {
-      if (!this.preferences || !this.preferences.keywords || this.preferences.keywords.length === 0) {
-        return [];
-      }
+      const keywords = this.preferences?.keywords || [];
+      if (keywords.length === 0) return [];
 
-      const activeKeywords = this.preferences.keywords.slice(0, 8);
+      const weightsMap = this.preferences?.keywordWeights || {};
+      const activeKeywords = keywords.slice(0, 8);
+
+      // 1. Calculate weights per keyword
+      // Base weight: 1.0. If watched frequently, weight rises up to 2.4 max
+      const keywordWeightList = activeKeywords.map(kw => {
+        const record = weightsMap[kw.toLowerCase()];
+        const weight = record?.weight || 1.0;
+        return { keyword: kw, weight };
+      });
+
+      // Diversity Guardrail: Hard maximum share = 35%
+      // No matter how high the weight is, no single keyword can exceed 35% of query quota
+      const totalWeight = keywordWeightList.reduce((acc, item) => acc + item.weight, 0);
       const queryPromises = [];
 
-      for (const kw of activeKeywords) {
-        const expanded = this.expandKeywordQueries(kw);
-        // Take top 2 query variations per keyword
-        for (const q of expanded.slice(0, 2)) {
-          queryPromises.push(this.fetchVideosForQuery(q, kw));
+      // 2. Fetch videos for active keywords based on normalized weighted quotas
+      for (const item of keywordWeightList) {
+        const rawShare = item.weight / (totalWeight || 1);
+        const cappedShare = Math.min(0.35, Math.max(0.12, rawShare)); // Between 12% and 35%
+        const numVariations = cappedShare > 0.22 ? 2 : 1;
+
+        const expanded = this.expandKeywordQueries(item.keyword);
+        for (let i = 0; i < numVariations && i < expanded.length; i++) {
+          queryPromises.push(this.fetchVideosForQuery(expanded[i], item.keyword, false));
+        }
+      }
+
+      // 3. Exploration / Serendipity Quota (15% - 20% of feed for related discoveries)
+      if (window.VibeFeedRelatedSuggester) {
+        const explorationTopics = window.VibeFeedRelatedSuggester.getSuggestions(keywords, 2);
+        for (const expTopic of explorationTopics) {
+          queryPromises.push(this.fetchVideosForQuery(expTopic, expTopic, true));
         }
       }
 
       const resultsArray = await Promise.all(queryPromises);
 
-      // Interleave results so topics are well distributed
+      // 4. Stratified Balanced Round-Robin Interleaving
+      // Guarantees high diversity: adjacent videos come from different topics
       const merged = [];
       const seenIds = new Set();
       const maxLength = Math.max(...resultsArray.map(arr => arr.length), 0);
@@ -233,17 +310,14 @@
             <div class="vf-shelf-icon">✦</div>
             <div>
               <div class="vf-shelf-title">Curated For Your Vibe</div>
-              <div class="vf-shelf-sub" id="vf-shelf-counter">Actively matching your preferences</div>
+              <div class="vf-shelf-sub" id="vf-shelf-counter">Weighted by your watch habits • Diverse feed</div>
             </div>
           </div>
           <div class="vf-shelf-actions">
             <div class="vf-filter-tabs" id="vf-shelf-tabs">
-              <button class="vf-tab-btn active" data-kw="all">All Vibes</button>
-              ${(this.preferences.keywords || []).slice(0, 6).map(k => `
-                <button class="vf-tab-btn" data-kw="${escapeAttr(k)}">${escapeHtml(k)}</button>
-              `).join('')}
+              <!-- Dynamically populated -->
             </div>
-            <button class="vf-refresh-btn" id="vf-shelf-refresh" title="Refresh Vibe Recommendations">↻ Refresh</button>
+            <button class="vf-refresh-btn" id="vf-shelf-refresh" title="Sync Latest Preferences & Refresh Feed">↻ Refresh</button>
           </div>
         </div>
         <div class="vf-shelf-grid" id="vf-shelf-cards">
@@ -259,7 +333,10 @@
 
       gridContainer.insertBefore(this.shelfElement, gridContainer.firstChild);
 
+      // Render tabs and attach event listeners
+      this.renderShelfTabs();
       this.attachShelfEventListeners();
+
       await this.refreshShelfVideos();
     }
 
@@ -270,26 +347,22 @@
       if (refreshBtn) {
         refreshBtn.addEventListener('click', async () => {
           refreshBtn.classList.add('spinning');
+          
+          // 1. Fetch latest preferences directly from storage to pick up newly added/removed keywords!
+          const latestPrefs = await new Promise(res => chrome.storage.local.get(null, res));
+          this.setPreferences(latestPrefs);
+
+          // 2. Re-render tabs so added/removed keywords update immediately
+          this.renderShelfTabs();
+
+          // 3. Clear cache and re-fetch videos
           this.cachedVideos.clear();
           this.displayedCount = 18;
           await this.refreshShelfVideos();
+
           setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
         });
       }
-
-      const tabs = this.shelfElement.querySelectorAll('.vf-tab-btn');
-      tabs.forEach(tab => {
-        tab.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          tabs.forEach(t => t.classList.remove('active'));
-          tab.classList.add('active');
-
-          const kw = tab.getAttribute('data-kw');
-          this.currentFilterTab = kw;
-          this.displayedCount = 18;
-          await this.renderCardsForCurrentTab();
-        });
-      });
 
       const loadMoreBtn = this.shelfElement.querySelector('#vf-load-more');
       if (loadMoreBtn) {
@@ -343,7 +416,7 @@
       }
 
       if (counter) {
-        counter.textContent = `${list.length} videos matching your vibe`;
+        counter.textContent = `${list.length} videos curated • Diverse & balanced`;
       }
 
       this.renderCardsFromPool();
@@ -360,7 +433,6 @@
       cardsContainer.innerHTML = visible.map(v => this.buildCardHtml(v)).join('');
       this.attachVideoCardClicks(cardsContainer);
 
-      // Show/hide Load More button
       if (footer) {
         footer.style.display = list.length > this.displayedCount ? 'flex' : 'none';
       }
@@ -368,12 +440,16 @@
 
     buildCardHtml(video) {
       this.injectedIds.add(video.id);
+      const isExplore = video.isExplore;
+      const tagText = isExplore ? `✦ Explore: ${video.matchedKeyword}` : `✦ ${video.matchedKeyword}`;
+      const tagClass = isExplore ? 'vf-vibe-tag is-explore' : 'vf-vibe-tag';
+
       return `
         <div class="vf-video-card" data-video-id="${escapeAttr(video.id)}">
           <div class="vf-thumb-wrapper">
             <img class="vf-thumbnail" src="${escapeAttr(video.thumbnail)}" alt="${escapeAttr(video.title)}" loading="lazy">
             ${video.duration ? `<span class="vf-duration-badge">${escapeHtml(video.duration)}</span>` : ''}
-            <div class="vf-vibe-tag">✦ ${escapeHtml(video.matchedKeyword)}</div>
+            <div class="${tagClass}">${escapeHtml(tagText)}</div>
           </div>
           <div class="vf-card-details">
             ${video.avatar ? `<img class="vf-channel-avatar" src="${escapeAttr(video.avatar)}" alt="" loading="lazy">` : ''}

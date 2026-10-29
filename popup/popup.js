@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const toggleWatchHud = document.getElementById('toggle-watch-hud');
   const toggleFeedCuration = document.getElementById('toggle-feed-curation');
   const toggleUnrestrictedSearch = document.getElementById('toggle-unrestricted-search');
+  const toggleWatchWeights = document.getElementById('toggle-watch-weights');
+  const toggleDiversityGuard = document.getElementById('toggle-diversity-guard');
+  const btnResetWeights = document.getElementById('btn-reset-weights');
 
   const vibeHistoryContainer = document.getElementById('vibe-history-container');
   const emptyRadarHint = document.getElementById('empty-radar-hint');
@@ -93,6 +96,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     toggleWatchHud.checked = preferences.autoSuggestOnWatch;
     if (toggleFeedCuration) toggleFeedCuration.checked = preferences.feedCuration !== false;
     if (toggleUnrestrictedSearch) toggleUnrestrictedSearch.checked = !preferences.filterScope?.search;
+    if (toggleWatchWeights) toggleWatchWeights.checked = preferences.adaptiveWatchWeights !== false;
+    if (toggleDiversityGuard) toggleDiversityGuard.checked = preferences.diversityGuardrail !== false;
 
     // Render Lists
     renderKeywordsList();
@@ -137,9 +142,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     keywords.forEach((kw, index) => {
       const isHashtag = kw.startsWith('#');
+      const record = preferences.keywordWeights?.[kw.toLowerCase()];
+      const isHighAffinity = record && record.weight > 1.3;
+
       const chip = document.createElement('div');
-      chip.className = `preference-chip ${isHashtag ? 'is-hashtag' : ''}`;
+      chip.className = `preference-chip ${isHashtag ? 'is-hashtag' : ''} ${isHighAffinity ? 'is-elevated' : ''}`;
       chip.innerHTML = `
+        ${isHighAffinity ? '<span class="chip-affinity-sparkle" title="High watch affinity (frequently watched)">✦</span>' : ''}
         <span class="chip-text">${escapeHtml(kw)}</span>
         <button class="chip-remove-btn" title="Remove" data-index="${index}">✕</button>
       `;
@@ -379,6 +388,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (refreshSuggestionsBtn) {
     refreshSuggestionsBtn.addEventListener('click', () => {
       renderRelatedSuggestions();
+    });
+  }
+
+  if (toggleWatchWeights) {
+    toggleWatchWeights.addEventListener('change', () => {
+      save({ adaptiveWatchWeights: toggleWatchWeights.checked });
+    });
+  }
+
+  if (toggleDiversityGuard) {
+    toggleDiversityGuard.addEventListener('change', () => {
+      save({ diversityGuardrail: toggleDiversityGuard.checked });
+    });
+  }
+
+  if (btnResetWeights) {
+    btnResetWeights.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'RESET_KEYWORD_WEIGHTS' }, () => {
+        preferences.keywordWeights = {};
+        renderKeywordsList();
+        btnResetWeights.textContent = '✓ Done';
+        setTimeout(() => btnResetWeights.textContent = 'Reset', 1500);
+      });
     });
   }
 

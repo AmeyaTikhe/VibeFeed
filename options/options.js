@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const watchSuggest = document.getElementById('opt-watch-suggest');
   const feedCuration = document.getElementById('opt-feed-curation');
   const unrestrictedSearch = document.getElementById('opt-unrestricted-search');
+  const watchWeights = document.getElementById('opt-watch-weights');
+  const diversityGuard = document.getElementById('opt-diversity-guard');
   
   const matchTitle = document.getElementById('opt-match-title');
   const matchChannel = document.getElementById('opt-match-channel');
@@ -63,6 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     watchSuggest.checked = prefs.autoSuggestOnWatch !== false;
     if (feedCuration) feedCuration.checked = prefs.feedCuration !== false;
     if (unrestrictedSearch) unrestrictedSearch.checked = !prefs.filterScope?.search;
+    if (watchWeights) watchWeights.checked = prefs.adaptiveWatchWeights !== false;
+    if (diversityGuard) diversityGuard.checked = prefs.diversityGuardrail !== false;
 
     const targets = prefs.matchTarget || {};
     matchTitle.checked = targets.title !== false;
@@ -106,6 +110,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   watchSuggest.addEventListener('change', () => save({ autoSuggestOnWatch: watchSuggest.checked }));
   if (feedCuration) {
     feedCuration.addEventListener('change', () => save({ feedCuration: feedCuration.checked }));
+  }
+  if (watchWeights) {
+    watchWeights.addEventListener('change', () => save({ adaptiveWatchWeights: watchWeights.checked }));
+  }
+  if (diversityGuard) {
+    diversityGuard.addEventListener('change', () => save({ diversityGuardrail: diversityGuard.checked }));
   }
   if (unrestrictedSearch) {
     unrestrictedSearch.addEventListener('change', () => {
