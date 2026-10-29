@@ -71,45 +71,64 @@
     // Dropdown rendering
     // ─────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Full rebuild of the dropdown — only call on open / close transitions
+     * or when the keyword list itself changes (add / remove). Do NOT call
+     * inside a checkbox change handler; use _patchDropdownInPlace() instead
+     * to avoid destroying the event-target node mid-bubble (which caused
+     * the "flicker: close then reopen" bug).
+     */
     renderDropdown() {
       if (!this.shelfElement) return;
       const wrapper = this.shelfElement.querySelector('#vf-dropdown-wrapper');
       if (!wrapper) return;
-
       const keywords = this.preferences?.keywords || [];
-
-      // Determine label for button
-      const label = this.isAllSelected
-        ? 'All Vibes'
-        : this.selectedKeywords.size === 0
-          ? 'None selected'
-          : this.selectedKeywords.size === 1
-            ? [...this.selectedKeywords][0]
-            : `${this.selectedKeywords.size} topics`;
 
       wrapper.innerHTML = `
         <button class="vf-dropdown-btn" id="vf-dropdown-trigger" title="Filter by topic">
-          <span class="vf-dropdown-label">${escapeHtml(label)}</span>
+          <span class="vf-dropdown-label">${escapeHtml(this._dropdownLabel())}</span>
           <span class="vf-dropdown-caret">${this.dropdownOpen ? '▲' : '▼'}</span>
         </button>
-        ${this.dropdownOpen ? this.buildDropdownPanel(keywords) : ''}
+        ${this.dropdownOpen ? this._buildDropdownPanel(keywords) : ''}
       `;
 
-      this.attachDropdownEvents(wrapper, keywords);
+      this._attachDropdownEvents(wrapper, keywords);
     }
 
-    buildDropdownPanel(keywords) {
-      const weightsMap = this.preferences?.keywordWeights || {};
-      const allChecked = this.isAllSelected;
+    /**
+     * Lightweight in-place patch — called from checkbox change handlers.
+     * Only updates text/checked states without touching DOM structure,
+     * so the originating checkbox element stays alive in the tree.
+     */
+    _patchDropdownInPlace(wrapper, keywords) {
+      const labelEl = wrapper.querySelector('.vf-dropdown-label');
+      if (labelEl) labelEl.textContent = this._dropdownLabel();
 
+      const allCb = wrapper.querySelector('#vf-all-checkbox');
+      if (allCb) allCb.checked = this.isAllSelected;
+
+      wrapper.querySelectorAll('.vf-kw-checkbox').forEach(cb => {
+        const kw = cb.getAttribute('data-kw');
+        cb.checked = this.isAllSelected || this.selectedKeywords.has(kw);
+      });
+    }
+
+    _dropdownLabel() {
+      if (this.isAllSelected) return 'All Vibes';
+      if (this.selectedKeywords.size === 0) return 'None selected';
+      if (this.selectedKeywords.size === 1) return [...this.selectedKeywords][0];
+      return `${this.selectedKeywords.size} topics`;
+    }
+
+    _buildDropdownPanel(keywords) {
+      const weightsMap = this.preferences?.keywordWeights || {};
       const keywordItems = keywords.map(kw => {
         const isChecked = this.isAllSelected || this.selectedKeywords.has(kw);
         const weightInfo = weightsMap[kw.toLowerCase()];
         const isPriority = weightInfo && weightInfo.weight > 1.3;
         return `
           <label class="vf-dropdown-item ${isPriority ? 'is-priority' : ''}" title="${escapeAttr(kw)}">
-            <input type="checkbox" class="vf-kw-checkbox" data-kw="${escapeAttr(kw)}"
-              ${isChecked ? 'checked' : ''}>
+            <input type="checkbox" class="vf-kw-checkbox" data-kw="${escapeAttr(kw)}" ${isChecked ? 'checked' : ''}>
             ${isPriority ? '<span class="vf-item-sparkle">✦</span>' : ''}
             <span class="vf-item-label">${escapeHtml(kw)}</span>
           </label>
@@ -123,7 +142,7 @@
             <button class="vf-dropdown-close-btn" id="vf-dropdown-close" title="Close">✕</button>
           </div>
           <label class="vf-dropdown-item vf-all-item">
-            <input type="checkbox" id="vf-all-checkbox" ${allChecked ? 'checked' : ''}>
+            <input type="checkbox" id="vf-all-checkbox" ${this.isAllSelected ? 'checked' : ''}>
             <span class="vf-item-label vf-all-label">All Vibes</span>
           </label>
           <div class="vf-dropdown-divider"></div>
@@ -134,7 +153,8 @@
       `;
     }
 
-    attachDropdownEvents(wrapper, keywords) {
+    _attachDropdownEvents(wrapper, keywords) {
+      // Toggle open/close — full rebuild is fine here (user clicked the button, not a checkbox)
       const trigger = wrapper.querySelector('#vf-dropdown-trigger');
       if (trigger) {
         trigger.addEventListener('click', (e) => {
@@ -147,10 +167,7 @@
       const panel = wrapper.querySelector('#vf-dropdown-panel');
       if (!panel) return;
 
-      // Prevent panel clicks closing it
-      panel.addEventListener('click', e => e.stopPropagation());
-
-      // ✕ Close button inside panel header
+      // ✕ Close button — full rebuild to remove panel from DOM
       const closeBtn = panel.querySelector('#vf-dropdown-close');
       if (closeBtn) {
         closeBtn.addEventListener('click', (e) => {
@@ -160,28 +177,26 @@
         });
       }
 
-      // "All Vibes" master checkbox
+      // "All Vibes" — patch in-place so the checkbox node isn't destroyed mid-event
       const allCb = panel.querySelector('#vf-all-checkbox');
       if (allCb) {
         allCb.addEventListener('change', () => {
           if (allCb.checked) {
-            // Remember what was selected before going to All
             this.prevSelectedKeywords = new Set(this.selectedKeywords);
             this.isAllSelected = true;
             this.selectedKeywords = new Set(keywords);
           } else {
-            // Fall back to previously selected subset (or all if prev was empty)
             this.isAllSelected = false;
             this.selectedKeywords = this.prevSelectedKeywords.size > 0
               ? new Set(this.prevSelectedKeywords)
-              : new Set(keywords); // can't leave nothing selected; revert to all
+              : new Set(keywords);
           }
-          this.renderDropdown();
+          this._patchDropdownInPlace(wrapper, keywords); // ← no DOM rebuild
           this.triggerAutoRefresh();
         });
       }
 
-      // Individual keyword checkboxes
+      // Individual keyword checkboxes — also patch in-place
       panel.querySelectorAll('.vf-kw-checkbox').forEach(cb => {
         cb.addEventListener('change', () => {
           const kw = cb.getAttribute('data-kw');
@@ -190,10 +205,9 @@
           } else {
             this.selectedKeywords.delete(kw);
           }
-          // If all are manually checked, flip to All mode
           this.isAllSelected = (this.selectedKeywords.size === keywords.length);
           this.prevSelectedKeywords = new Set(this.selectedKeywords);
-          this.renderDropdown();
+          this._patchDropdownInPlace(wrapper, keywords); // ← no DOM rebuild
           this.triggerAutoRefresh();
         });
       });

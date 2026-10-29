@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Ask service worker to proxy the autocomplete fetch
     let suggestions = await new Promise((resolve) => {
       chrome.runtime.sendMessage(
-        { action: 'FETCH_SUGGESTIONS', keywords, limit: 8 },
+        { action: 'FETCH_SUGGESTIONS', keywords, limit: 12 },
         (resp) => {
           if (chrome.runtime.lastError || !resp?.success || !resp.suggestions?.length) {
             // Fallback: mirror keywords with simple suffix hints

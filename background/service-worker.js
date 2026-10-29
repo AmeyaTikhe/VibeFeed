@@ -276,7 +276,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Proxy: fetch YouTube autocomplete suggestions (popup/options can't reach cross-origin)
   if (message.action === 'FETCH_SUGGESTIONS') {
     const keywords = Array.isArray(message.keywords) ? message.keywords : [];
-    const limit = Number(message.limit) || 8;
+    const limit = Number(message.limit) || 12;
 
     async function fetchForQuery(query) {
       try {
@@ -287,42 +287,88 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const match = text.match(/\[.*\]/s);
         if (!match) return [];
         const parsed = JSON.parse(match[0]);
-        return (parsed[1] || []).map(s => s[0]).filter(Boolean).slice(0, 8);
+        return (parsed[1] || []).map(s => s[0]).filter(Boolean).slice(0, 10);
       } catch { return []; }
     }
 
-    function extractTag(raw, kw) {
+    const FILLER = new Set([
+      'full','course','tutorial','how','to','the','a','an','in','for','and','or',
+      'beginners','advanced','complete','guide','tips','tricks','best','top',
+      'new','latest','free','2024','2025','2026','2027','video','channel',
+      'playlist','watch','learn','learning','official','part','episode'
+    ]);
+
+    function cleanTag(raw, kw) {
       const kwClean = kw.replace(/^#+/, '').trim().toLowerCase();
-      const FILLER = new Set(['full','course','tutorial','how','to','the','a','an','in','for','beginners','advanced','complete','guide','tips','tricks','best','top','new','latest','free','2024','2025','2026','2027','video','channel','playlist','watch','learn','learning']);
-      let text = raw.replace(new RegExp('^' + kwClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', 'i'), '').trim();
+      const escKw = kwClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Strip the seed keyword from the front
+      let text = raw.replace(new RegExp('^' + escKw + '\\s*', 'i'), '').trim();
+      // If stripping leaves nothing useful, keep the full raw string
       if (!text || text.length < 3) text = raw;
+      // Remove trailing years
       text = text.replace(/\b(20\d{2})\b/g, '').trim();
-      const words = text.split(/\s+/).filter(w => w.length > 1 && !FILLER.has(w.toLowerCase())).slice(0, 4);
+      // Split, drop filler
+      const words = text.split(/\s+/).filter(w => w.length > 1 && !FILLER.has(w.toLowerCase()));
       if (words.length === 0) return null;
-      const tag = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      // Title-case, cap at 5 words
+      const tag = words.slice(0, 5).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       return tag.length >= 3 ? tag : null;
     }
 
     (async () => {
-      const activeNorm = new Set(keywords.map(k => k.trim().toLowerCase()));
-      const candidates = [];
-      const seen = new Set();
+      if (keywords.length === 0) {
+        sendResponse({ success: true, suggestions: [
+          'Productivity', 'Deep Work', 'Minimalism', 'Coding', 'AI Tools',
+          'Science Documentaries', 'Fitness', 'Lo-fi Music', 'Design', 'Philosophy'
+        ].slice(0, limit) });
+        return;
+      }
 
-      for (const kw of keywords.slice(0, 5)) {
-        const raws = await fetchForQuery(kw);
+      const activeNorm = new Set(keywords.map(k => k.trim().toLowerCase().replace(/^#+/, '')));
+      const seen = new Set(activeNorm); // pre-seed so we never suggest current keywords
+      const candidates = [];
+
+      // Build query variants: bare keyword, keyword + space (triggers more completions),
+      // and pairs of keywords to find overlapping topics
+      const queryVariants = [];
+      for (const kw of keywords.slice(0, 6)) {
+        const clean = kw.replace(/^#+/, '').trim();
+        queryVariants.push(clean);            // e.g. "ielts"
+        queryVariants.push(clean + ' ');      // e.g. "ielts " — triggers sub-topic completions
+      }
+      // Cross-keyword pair queries (finds topics that bridge two interests)
+      if (keywords.length >= 2) {
+        for (let i = 0; i < Math.min(keywords.length - 1, 3); i++) {
+          const a = keywords[i].replace(/^#+/, '').trim();
+          const b = keywords[i + 1].replace(/^#+/, '').trim();
+          queryVariants.push(`${a} ${b}`);
+        }
+      }
+
+      // Fetch all variants in parallel
+      const results = await Promise.all(queryVariants.map(q => fetchForQuery(q).then(raws => ({ q, raws }))));
+
+      for (const { q, raws } of results) {
+        // Find which seed keyword this query was derived from
+        const seedKw = keywords.find(k => q.toLowerCase().startsWith(k.replace(/^#+/, '').toLowerCase())) || keywords[0];
         for (const raw of raws) {
-          const tag = extractTag(raw, kw);
-          if (!tag) continue;
+          // Try stripped tag first; fall back to using the raw suggestion title-cased
+          let tag = cleanTag(raw, seedKw);
+          if (!tag) {
+            // Use the raw autocomplete phrase as-is (title-cased, capped at 5 words)
+            const words = raw.trim().split(/\s+/).filter(w => w.length > 1 && !FILLER.has(w.toLowerCase())).slice(0, 5);
+            tag = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            if (!tag || tag.length < 3) continue;
+          }
           const norm = tag.toLowerCase();
-          if (activeNorm.has(norm)) continue;
-          if ([...activeNorm].some(a => norm.includes(a) || a.includes(norm))) continue;
-          if (seen.has(norm)) continue;
+          // Skip if already in preference list or already in our candidate set
+          if ([...seen].some(s => norm.includes(s) || s.includes(norm))) continue;
           seen.add(norm);
           candidates.push(tag);
         }
       }
 
-      // Shuffle for freshness
+      // Shuffle for variety
       for (let i = candidates.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
