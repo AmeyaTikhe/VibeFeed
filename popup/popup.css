@@ -116,6 +116,7 @@ body.apple-dark {
   width: 44px;
   height: 24px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .apple-toggle.small {
@@ -739,13 +740,15 @@ body.apple-dark {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  padding: 4px 0;
 }
 
 .auto-mode-title-wrap {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
 }
 
 .auto-mode-icon {

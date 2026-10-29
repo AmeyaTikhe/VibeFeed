@@ -450,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateAutoModeUI(isActive) {
     if (!autoModeBody) return;
     autoModeBody.style.display = isActive ? 'block' : 'none';
-    renderAutoModeLog();
+    if (isActive) renderAutoModeLog();
   }
 
   function renderAutoModeLog() {
@@ -486,18 +486,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const added = [];
-    const existingNorm = new Set(kws.map(k => k.toLowerCase()));
+    const existingNorm = new Set((preferences.keywords || []).map(k => k.toLowerCase()));
+    const updatedKeywords = [...(preferences.keywords || [])];
 
     for (const tag of newTags) {
       if (!existingNorm.has(tag.toLowerCase())) {
-        addKeyword(tag);
         existingNorm.add(tag.toLowerCase());
+        updatedKeywords.push(tag);
         added.push(tag);
       }
     }
 
-    // Record to auto mode log
+    // Record to auto mode log and batch save
     if (added.length > 0) {
+      preferences.keywords = updatedKeywords;
       const log = Array.isArray(preferences.autoModeLog) ? preferences.autoModeLog : [];
       const newEntries = added.map(tag => ({
         tag,
@@ -505,7 +507,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         timestamp: Date.now()
       }));
       const updatedLog = [...newEntries, ...log].slice(0, 20);
-      save({ autoModeLog: updatedLog, autoModeLastRun: Date.now() });
+      save({ keywords: updatedKeywords, autoModeLog: updatedLog, autoModeLastRun: Date.now() });
+      renderKeywordsList();
+      updateFooterStats();
+      renderVibeRadar();
     } else {
       save({ autoModeLastRun: Date.now() });
     }
@@ -529,7 +534,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${Math.floor(diff / 86400000)}d ago`;
   }
 
-  function addKeyword(rawText) {
+  function addKeyword(rawText, shouldFocusInput = false) {
     let kw = (rawText || '').trim();
     if (!kw) return;
 
@@ -543,13 +548,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const updated = [...preferences.keywords, kw];
       save({ keywords: updated });
       renderKeywordsList();
-      renderRelatedSuggestions();
+      renderRelatedSuggestions(false);
       updateFooterStats();
       renderVibeRadar(); // Refresh radar added states
     }
 
-    keywordInput.value = '';
-    keywordInput.focus();
+    if (shouldFocusInput && keywordInput) {
+      keywordInput.value = '';
+      keywordInput.focus();
+    }
   }
 
   function removeKeyword(index) {
@@ -717,11 +724,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Add Keyword Listeners
-  addKeywordBtn.addEventListener('click', () => addKeyword(keywordInput.value));
+  addKeywordBtn.addEventListener('click', () => addKeyword(keywordInput.value, true));
   keywordInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      addKeyword(keywordInput.value);
+      addKeyword(keywordInput.value, true);
     }
   });
 
@@ -741,13 +748,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Auto Mode Toggle
+  // Auto Mode Toggle (smooth preference toggle, no UI jumping or re-render loops)
   if (toggleAutoMode) {
     toggleAutoMode.addEventListener('change', () => {
       const isOn = toggleAutoMode.checked;
       save({ autoMode: isOn });
       updateAutoModeUI(isOn);
-      if (isOn) runAutoDiscovery(false);
     });
   }
 
