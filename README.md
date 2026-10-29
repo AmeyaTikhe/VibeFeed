@@ -1,12 +1,12 @@
-# VibeFeed ✦ YouTube Feed Filter & Vibe Curator
+# VibeFeed: YouTube Feed Filter & Vibe Curator
 
 > A minimalist, privacy-focused browser extension that filters your YouTube feed so you **only** see videos matching your curated keywords, topics, and `#hashtags`. As you watch videos, it dynamically analyzes their vibe and suggests matching interests you can add to your feed with a single click.
 
 ---
 
-## ✨ Features
+## Features
 
-- **Active Feed Curation & Shelf**: Instead of just hiding videos and leaving blank space, VibeFeed actively curates and displays matching videos right on your YouTube homepage in a dedicated **✦ SUGGESTED** shelf with topic tabs and quick refresh.
+- **Active Feed Curation & Shelf**: Instead of just hiding videos and leaving blank space, VibeFeed actively curates and displays matching videos right on your YouTube homepage in a dedicated **SUGGESTED** shelf with topic tabs and quick refresh.
 - **Unrestricted Search & Channel Browsing**: VibeFeed only filters passive feed recommendations on your homepage. When you search for a video or visit a creator's channel, results are never blocked.
 - **Dynamic Vibe Detection (On Watch)**: As you watch any YouTube video, VibeFeed's client-side NLP engine analyzes the video's title, channel, description, and hashtags, displaying a minimalist floating HUD with instant 1-tap vibe additions (e.g. `[+ #AI]`, `[+ Python]`, `[+ Deep Work]`).
 - **Vibe Radar**: Keeps a history of vibes detected from videos you've watched, complete with 1-click `[+]` addition buttons inside the popup.
@@ -20,19 +20,15 @@
 
 ---
 
-## 🚀 Installation & Setup Guide
+## Installation & Setup Guide
 
 VibeFeed is built on the universal **Manifest V3** standard and works across all modern Chromium browsers (Google Chrome, Brave, Microsoft Edge, Arc, Opera) and Firefox.
 
-### Step 1: Clone or Download the Repository
+### Step 1: Download to Local Device
 
-You can clone this repository using Git:
-
-```bash
-git clone https://github.com/<your-username>/vibefeed.git
-```
-
-*(Alternatively, click **Code** > **Download ZIP** on GitHub and extract the folder to your computer).*
+1. On the GitHub repository page, click the green **Code** button near the top right.
+2. Click **Download ZIP**.
+3. Extract (unzip) the downloaded `.zip` file into a folder on your computer.
 
 ---
 
@@ -45,24 +41,24 @@ git clone https://github.com/<your-username>/vibefeed.git
    - **Opera**: `opera://extensions`
 2. In the top-right corner, toggle **Developer mode** to **ON**.
 3. In the top-left corner, click **Load unpacked**.
-4. Select the `vibefeed` (or `YTF`) project folder (the folder containing `manifest.json`).
-5. VibeFeed is now installed! Pin it to your browser toolbar for quick access.
+4. Select the extracted folder (the folder containing `manifest.json`).
+5. VibeFeed is now installed. Pin it to your browser toolbar for quick access.
 
 #### Microsoft Edge
 1. Navigate to `edge://extensions`.
 2. In the left sidebar, turn on **Developer mode**.
 3. Click the **Load unpacked** button at the top.
-4. Select the project folder containing `manifest.json`.
+4. Select the extracted folder containing `manifest.json`.
 5. Pin VibeFeed to your toolbar.
 
 #### Mozilla Firefox
 1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
 2. Click **Load Temporary Add-on...**.
-3. Select `manifest.json` inside the project folder.
+3. Select `manifest.json` inside the extracted folder.
 
 ---
 
-## 🎯 How to Use
+## How to Use
 
 1. **Add Your Preferences**:
    - Click the **VibeFeed** icon in your browser toolbar.
@@ -75,11 +71,11 @@ git clone https://github.com/<your-username>/vibefeed.git
    - Click any tag to add it to your feed immediately.
 4. **Customize Rules**:
    - Open the popup and navigate to **Rules** to toggle Shorts hiding, adjust target fields (Title, Channel, Hashtags, Description), or add negative keywords.
-   - Open **Options** (`⚙`) to export/import your configuration as JSON or load pre-made Starter Packs.
+   - Open **Options** to export/import your configuration as JSON or load pre-made Starter Packs.
 
 ---
 
-## 🛠️ Testing & Development
+## Testing & Development
 
 Automated test suites verify feed filtering, keyword scoring, decay logic, and topic extraction:
 
@@ -90,7 +86,7 @@ node tests/test-engine.js
 
 ---
 
-## 📁 Repository Structure
+## Project Structure
 
 ```
 ├── manifest.json              # Universal Manifest V3 extension configuration
@@ -118,13 +114,13 @@ node tests/test-engine.js
 
 ---
 
-## 🛡️ Privacy & Performance
+## Privacy & Performance
 
 - **Zero Data Collection**: No metrics, browsing history, or user data ever leaves your device.
 - **Lightweight & Fast**: Debounced DOM mutation observers and efficient set lookups keep YouTube scrolling at 60 FPS without memory leaks.
 
 ---
 
-## 📄 License
+## License
 
 MIT License. Free to use, modify, and distribute.
