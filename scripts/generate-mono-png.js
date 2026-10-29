@@ -161,7 +161,7 @@ function renderMonoPixel(x, y, w, h) {
 }
 
 const iconsDir = path.join(__dirname, '..', 'icons');
-const sizes = [128, 512];
+const sizes = [16, 32, 48, 128, 512];
 
 for (const sz of sizes) {
   const buf = createPng(sz, sz, renderMonoPixel);
