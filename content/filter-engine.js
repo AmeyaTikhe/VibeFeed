@@ -24,6 +24,12 @@
           hashtags: true,
           description: true
         },
+        filterScope: {
+          homeFeed: true,
+          subscriptions: false, // Don't block subscriptions
+          search: false,        // Don't block explicit search results
+          sidebar: true         // Filter sidebar recommendations
+        },
         hideShorts: false
       };
 
@@ -97,9 +103,38 @@
     /**
      * Determines whether a card should be ALLOWED or FILTERED
      */
-    shouldShowCard(cardData) {
+    shouldShowCard(cardData, cardElement) {
       // If extension is toggled OFF: always show
       if (!this.preferences.enabled) return true;
+
+      const path = window.location.pathname;
+      const scope = this.preferences.filterScope || { homeFeed: true, subscriptions: false, search: false, sidebar: true };
+
+      // 1. Never filter explicit search results unless user opted-in
+      if (path === '/results' && !scope.search) {
+        return true;
+      }
+
+      // 2. Never filter subscription feed unless user opted-in
+      if (path.startsWith('/feed/subscriptions') && !scope.subscriptions) {
+        return true;
+      }
+
+      // 3. Never filter channel page videos (e.g. /@username/videos)
+      if (path.startsWith('/@') || path.startsWith('/c/') || path.startsWith('/channel/')) {
+        return true;
+      }
+
+      // 4. On Watch page: NEVER touch the primary player or video details
+      if (path === '/watch') {
+        const isSidebar = cardElement && (cardElement.matches('ytd-compact-video-renderer') || cardElement.closest('#related'));
+        if (!isSidebar) {
+          return true; // Not a sidebar recommendation (e.g. main video or playlist header)
+        }
+        if (!scope.sidebar) {
+          return true; // Sidebar filtering disabled
+        }
+      }
 
       // If hideShorts is ON and card is a Short: filter it
       if (this.preferences.hideShorts && cardData.isShort) {
@@ -171,7 +206,7 @@
         return false; // Still loading
       }
 
-      const allow = this.shouldShowCard(cardData);
+      const allow = this.shouldShowCard(cardData, card);
 
       if (allow) {
         // Show video card cleanly

@@ -7,14 +7,16 @@
   'use strict';
 
   let filterEngine = null;
+  let feedInjector = null;
   let observer = null;
   let currentVideoId = null;
   let lastAnalyzedVideoId = null;
   let isThrottled = false;
   let preferences = null;
 
-  // Initialize Filter Engine
+  // Initialize Filter & Feed Engines
   filterEngine = new window.VibeFeedFilterEngine();
+  feedInjector = new window.VibeFeedInjector();
 
   // Load preferences from local storage
   async function initPreferences() {
@@ -22,6 +24,7 @@
       chrome.storage.local.get(null, (data) => {
         preferences = data || {};
         filterEngine.setPreferences(preferences);
+        feedInjector.setPreferences(preferences);
         resolve(preferences);
       });
     });
@@ -34,12 +37,17 @@
         preferences[key] = change.newValue;
       }
       filterEngine.setPreferences(preferences);
+      feedInjector.setPreferences(preferences);
       
       // Re-filter or reset
       if (preferences.enabled === false) {
         filterEngine.resetAllCards();
+        feedInjector.removeCuratedShelf();
       } else {
         processAllCards();
+        if (window.location.pathname === '/' || window.location.pathname === '') {
+          feedInjector.injectCuratedShelf();
+        }
       }
       updateFloatingFeedPill();
     }
@@ -134,14 +142,21 @@
   function checkNavigation() {
     const url = new URL(window.location.href);
     const isWatchPage = url.pathname === '/watch' && url.searchParams.get('v');
+    const isHomePage = url.pathname === '/' || url.pathname === '';
 
     if (isWatchPage) {
       currentVideoId = url.searchParams.get('v');
       removeFloatingFeedPill();
+      feedInjector.removeCuratedShelf();
       handleWatchPage(currentVideoId);
     } else {
       currentVideoId = null;
       removeWatchHud();
+      if (isHomePage) {
+        feedInjector.injectCuratedShelf();
+      } else {
+        feedInjector.removeCuratedShelf();
+      }
       updateFloatingFeedPill();
       scheduleFilterPass();
     }

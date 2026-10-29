@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const hideShorts = document.getElementById('opt-hide-shorts');
   const floatingBadge = document.getElementById('opt-floating-badge');
   const watchSuggest = document.getElementById('opt-watch-suggest');
+  const feedCuration = document.getElementById('opt-feed-curation');
+  const unrestrictedSearch = document.getElementById('opt-unrestricted-search');
   
   const matchTitle = document.getElementById('opt-match-title');
   const matchChannel = document.getElementById('opt-match-channel');
@@ -59,6 +61,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     hideShorts.checked = Boolean(prefs.hideShorts);
     floatingBadge.checked = prefs.showFloatingBadge !== false;
     watchSuggest.checked = prefs.autoSuggestOnWatch !== false;
+    if (feedCuration) feedCuration.checked = prefs.feedCuration !== false;
+    if (unrestrictedSearch) unrestrictedSearch.checked = !prefs.filterScope?.search;
 
     const targets = prefs.matchTarget || {};
     matchTitle.checked = targets.title !== false;
@@ -100,6 +104,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   hideShorts.addEventListener('change', () => save({ hideShorts: hideShorts.checked }));
   floatingBadge.addEventListener('change', () => save({ showFloatingBadge: floatingBadge.checked }));
   watchSuggest.addEventListener('change', () => save({ autoSuggestOnWatch: watchSuggest.checked }));
+  if (feedCuration) {
+    feedCuration.addEventListener('change', () => save({ feedCuration: feedCuration.checked }));
+  }
+  if (unrestrictedSearch) {
+    unrestrictedSearch.addEventListener('change', () => {
+      const scope = prefs.filterScope || { homeFeed: true, subscriptions: false, search: false, sidebar: true };
+      scope.search = !unrestrictedSearch.checked;
+      save({ filterScope: scope });
+    });
+  }
 
   function updateMatchTargets() {
     const updated = {

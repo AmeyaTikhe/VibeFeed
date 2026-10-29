@@ -2,7 +2,9 @@
 const fs = require('fs');
 
 // Mock window and browser globals
-global.window = {};
+global.window = {
+  location: { pathname: '/' }
+};
 
 // Load VibeAnalyzer
 eval(fs.readFileSync('content/vibe-analyzer.js', 'utf8'));
@@ -62,6 +64,32 @@ for (const tc of testCases) {
   if (!pass) failed++;
   console.log(`[${pass ? 'PASS' : 'FAIL'}] "${tc.data.title}" -> got ${result ? 'SHOW' : 'FILTER'}, expected ${tc.expected ? 'SHOW' : 'FILTER'} (${tc.reason})`);
 }
+
+// Test Search Scope
+console.log('\n--- Testing Search & Watch Scope ---');
+global.window.location.pathname = '/results';
+const searchCard = { title: 'Random Cooking Recipe Pasta', channel: 'Chef', metaSnippet: '', isShort: false };
+const searchResult = engine.shouldShowCard(searchCard, null);
+if (searchResult === true) {
+  console.log('[PASS] Search results are NOT blocked (unrestricted searching enabled).');
+} else {
+  console.error('[FAIL] Search results were blocked!');
+  failed++;
+}
+
+// Test Channel Scope
+global.window.location.pathname = '/@hubermanlab';
+const channelCard = { title: 'Dopamine & Drive', channel: 'Andrew Huberman', metaSnippet: '', isShort: false };
+const channelResult = engine.shouldShowCard(channelCard, null);
+if (channelResult === true) {
+  console.log('[PASS] Channel videos are NOT blocked.');
+} else {
+  console.error('[FAIL] Channel videos were blocked!');
+  failed++;
+}
+
+// Reset to Home
+global.window.location.pathname = '/';
 
 console.log('\n--- Testing VibeAnalyzer ---');
 const sampleMeta = {

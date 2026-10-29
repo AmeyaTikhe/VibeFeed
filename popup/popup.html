@@ -87,12 +87,26 @@
         </div>
       </section>
 
-      <!-- Visual Filter Style Selector -->
+      <!-- Visual Filter Style Selector & Curation Toggle -->
       <section class="style-toggle-card">
         <span class="style-label">Filter Visual Style</span>
         <div class="pill-segmented" id="visual-style-group">
           <button class="pill-btn active" data-style="hide">Clean Hide</button>
           <button class="pill-btn" data-style="blur">Frosted Glass</button>
+        </div>
+      </section>
+
+      <!-- Active Feed Curation Card -->
+      <section class="section-card">
+        <div class="setting-toggle-row">
+          <div>
+            <div class="setting-title">✦ Curate & Inject Matching Feed</div>
+            <div class="setting-sub">Actively injects preference videos directly into your feed</div>
+          </div>
+          <label class="apple-toggle small">
+            <input type="checkbox" id="toggle-feed-curation" checked>
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </section>
 
@@ -178,6 +192,19 @@
           </div>
           <label class="apple-toggle small">
             <input type="checkbox" id="toggle-match-channel" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <div class="setting-toggle-row">
+          <div>
+            <div class="setting-title">Unrestricted Search & Channels</div>
+            <div class="setting-sub">Never block videos when you explicitly search or visit channels</div>
+          </div>
+          <label class="apple-toggle small">
+            <input type="checkbox" id="toggle-unrestricted-search" checked>
             <span class="toggle-slider"></span>
           </label>
         </div>

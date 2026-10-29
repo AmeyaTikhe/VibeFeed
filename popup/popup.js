@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const toggleHideShorts = document.getElementById('toggle-hide-shorts');
   const toggleMatchChannel = document.getElementById('toggle-match-channel');
   const toggleWatchHud = document.getElementById('toggle-watch-hud');
+  const toggleFeedCuration = document.getElementById('toggle-feed-curation');
+  const toggleUnrestrictedSearch = document.getElementById('toggle-unrestricted-search');
 
   const vibeHistoryContainer = document.getElementById('vibe-history-container');
   const emptyRadarHint = document.getElementById('empty-radar-hint');
@@ -86,6 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     toggleHideShorts.checked = preferences.hideShorts;
     toggleMatchChannel.checked = preferences.matchTarget.channel;
     toggleWatchHud.checked = preferences.autoSuggestOnWatch;
+    if (toggleFeedCuration) toggleFeedCuration.checked = preferences.feedCuration !== false;
+    if (toggleUnrestrictedSearch) toggleUnrestrictedSearch.checked = !preferences.filterScope?.search;
 
     // Render Lists
     renderKeywordsList();
@@ -361,6 +365,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   toggleWatchHud.addEventListener('change', () => {
     save({ autoSuggestOnWatch: toggleWatchHud.checked });
   });
+
+  if (toggleFeedCuration) {
+    toggleFeedCuration.addEventListener('change', () => {
+      save({ feedCuration: toggleFeedCuration.checked });
+    });
+  }
+
+  if (toggleUnrestrictedSearch) {
+    toggleUnrestrictedSearch.addEventListener('change', () => {
+      const scope = preferences.filterScope || { homeFeed: true, subscriptions: false, search: false, sidebar: true };
+      scope.search = !toggleUnrestrictedSearch.checked;
+      save({ filterScope: scope });
+    });
+  }
 
   // Options Page button
   openOptionsBtn.addEventListener('click', () => {

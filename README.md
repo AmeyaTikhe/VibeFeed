@@ -6,7 +6,9 @@
 
 ## ✨ Features
 
-- **Strict Focus Feed (Whitelist)**: Your YouTube home and recommended feeds will display **only** videos adhering to your active preference list (keywords, topics, and `#hashtags`).
+- **Active Feed Curation & Injection**: Instead of just hiding videos and leaving empty space, VibeFeed **actively fetches and injects videos matching your preferences directly into your YouTube Home feed**. You get an Apple-styled **"✦ Curated For Your Vibe"** shelf with real playable video cards and topic tabs (`[ All Vibes ] [ #AI ] [ Coding ] [ Synthwave ] [ ↻ Refresh ]`).
+- **Unrestricted Watching & Search**: When you explicitly search for any video or visit a creator's channel, VibeFeed never blocks your results. You have 100% freedom to search and watch anything you want. Filtering curates passive home feed recommendations.
+- **Strict Focus Feed (Whitelist)**: Your YouTube home feed displays **only** videos adhering to your active preference list (keywords, topics, and `#hashtags`).
 - **Dynamic Vibe Suggestions (On Watch)**: As you watch any YouTube video, VibeFeed's client-side NLP engine analyzes the video's title, channel, description, and hashtags. An Apple-style floating HUD appears offering instant 1-tap vibe additions (e.g. `[+ #AI]`, `[+ Python]`, `[+ Deep Work]`).
 - **Vibe Radar**: A history of vibes detected from videos you've watched, complete with 1-click `[+]` addition buttons inside the popup.
 - **Apple Dark Mode Aesthetics**:

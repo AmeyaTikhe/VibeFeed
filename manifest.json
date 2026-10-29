@@ -31,6 +31,7 @@
       "js": [
         "content/vibe-analyzer.js",
         "content/filter-engine.js",
+        "content/feed-injector.js",
         "content/content.js"
       ],
       "css": [

@@ -25,6 +25,13 @@ const DEFAULT_PREFERENCES = {
     hashtags: true,
     description: true
   },
+  filterScope: {
+    homeFeed: true,
+    subscriptions: false,
+    search: false,
+    sidebar: true
+  },
+  feedCuration: true,
   hideShorts: false,
   showFloatingBadge: true,
   autoSuggestOnWatch: true,
