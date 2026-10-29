@@ -120,7 +120,7 @@ body.apple-dark {
 }
 
 .apple-toggle.small {
-  width: 38px;
+  width: 36px;
   height: 20px;
 }
 
@@ -140,6 +140,7 @@ body.apple-dark {
   border: 1px solid rgba(255, 255, 255, 0.16);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   border-radius: 999px;
+  box-sizing: border-box;
 }
 
 .toggle-slider::before {
@@ -148,18 +149,19 @@ body.apple-dark {
   height: 18px;
   width: 18px;
   left: 2px;
-  bottom: 2px;
+  top: 2px;
   background-color: rgba(255, 69, 58, 0.82);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease, box-shadow 0.25s ease;
   border-radius: 50%;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 6px rgba(255, 69, 58, 0.35);
+  box-sizing: border-box;
 }
 
 .apple-toggle.small .toggle-slider::before {
   height: 14px;
   width: 14px;
   left: 2px;
-  bottom: 2px;
+  top: 2px;
 }
 
 /* Active State: Track stays crisp, knob turns green with translucent sheen */
@@ -175,7 +177,7 @@ body.apple-dark {
 }
 
 .apple-toggle.small input:checked + .toggle-slider::before {
-  transform: translateX(18px);
+  transform: translateX(16px);
   background-color: rgba(48, 209, 88, 0.85);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 8px rgba(48, 209, 88, 0.45);
 }
