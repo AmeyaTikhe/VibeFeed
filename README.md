@@ -11,9 +11,7 @@
 - **Dynamic Vibe Detection (On Watch)**: As you watch any YouTube video, VibeFeed's client-side NLP engine analyzes the video's title, channel, description, and hashtags, displaying a minimalist floating HUD with instant 1-tap vibe additions (e.g. `[+ #AI]`, `[+ Python]`, `[+ Deep Work]`).
 - **Vibe Radar**: Keeps a history of vibes detected from videos you've watched, complete with 1-click `[+]` addition buttons inside the popup.
 - **Negative Keywords (Anti-Clickbait)**: Block specific terms (e.g. `prank`, `clickbait`, `drama`, `spoilers`) even if a video matches other keywords.
-- **Visual Filter Modes**:
-  - **Clean Hide (Default)**: Completely collapses non-matching cards for an uninterrupted, distraction-free grid.
-  - **Frosted Glass**: Non-matching cards remain subtly blurred and smoothly reveal on hover.
+- **Frosted Glass Filter**: Non-matching videos are subtly blurred with frosted glass and a minimalist badge, smoothly revealing on hover without disrupting your feed layout.
 - **Distraction Reducers**: Option to hide YouTube Shorts reels and shelves entirely.
 - **Starter Packs**: 1-click curated bundles for *Deep Work & Code*, *Ambient & Lo-Fi Flow*, *Cosmos & Science*, and *Mindset & High Agency*.
 - **100% Private & Local**: Zero external API calls, zero analytics, zero data collection. All keyword filtering and vibe extraction runs locally in your browser.

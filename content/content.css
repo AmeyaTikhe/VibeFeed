@@ -22,32 +22,6 @@
   border-radius: 14px !important;
 }
 
-/* Clean Hide Mode for Filtered YouTube Cards & Empty Rows */
-/* Never apply to anything inside the curated shelf */
-ytd-rich-item-renderer.vibefeed-clean-hide,
-ytd-video-renderer.vibefeed-clean-hide,
-ytd-compact-video-renderer.vibefeed-clean-hide,
-ytd-grid-video-renderer.vibefeed-clean-hide,
-ytd-rich-section-renderer.vibefeed-clean-hide,
-ytd-reel-shelf-renderer.vibefeed-clean-hide {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-ytd-rich-grid-row.vibefeed-empty-row {
-  display: none !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
 .vibefeed-frosted-card > *:not(.vibefeed-frosted-badge) {
   filter: blur(14px) brightness(0.35) grayscale(0.6) !important;
   pointer-events: none !important;

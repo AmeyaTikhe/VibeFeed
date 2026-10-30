@@ -6,7 +6,7 @@
 const DEFAULT_PREFERENCES = {
   enabled: true,
   filterMode: 'whitelist', // 'whitelist' = only show matching keywords, 'blacklist' = hide matching
-  visualStyle: 'hide',     // 'hide' = completely collapse, 'blur' = frosted glass blur
+  visualStyle: 'blur',     // Frosted glass blur mode
   keywords: [
     '#ai',
     'coding',
@@ -59,6 +59,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   if (!merged.matchTarget) merged.matchTarget = DEFAULT_PREFERENCES.matchTarget;
   if (!merged.stats) merged.stats = DEFAULT_PREFERENCES.stats;
 
+  merged.visualStyle = 'blur';
   await chrome.storage.local.set(merged);
 
   // Set default badge styling

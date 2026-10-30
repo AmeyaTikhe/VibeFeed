@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const emptyKeywordsHint = document.getElementById('empty-keywords-hint');
   const clearAllKeywordsBtn = document.getElementById('clear-all-keywords');
   
-  const visualStyleGroup = document.getElementById('visual-style-group');
   const filterModeGroup = document.getElementById('filter-mode-group');
   
   const negativeInput = document.getElementById('negative-input');
@@ -62,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   preferences = {
     enabled: preferences.enabled !== false,
     filterMode: preferences.filterMode || 'whitelist',
-    visualStyle: preferences.visualStyle || 'hide',
+    visualStyle: 'blur',
     keywords: Array.isArray(preferences.keywords) ? preferences.keywords : ['#ai', 'coding', 'minimalism'],
     negativeKeywords: Array.isArray(preferences.negativeKeywords) ? preferences.negativeKeywords : ['clickbait', 'prank'],
     matchTarget: preferences.matchTarget || { title: true, channel: true, hashtags: true, description: true },
@@ -87,11 +86,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Master Switch
     masterToggle.checked = preferences.enabled;
     updateStatusLabel(preferences.enabled);
-
-    // Visual Style Selector
-    visualStyleGroup.querySelectorAll('.pill-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-style') === preferences.visualStyle);
-    });
 
     // Filter Mode Selector
     filterModeGroup.querySelectorAll('.pill-btn').forEach(btn => {
@@ -703,15 +697,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isEnabled = masterToggle.checked;
     save({ enabled: isEnabled });
     updateStatusLabel(isEnabled);
-  });
-
-  // Visual Style Event (Hide vs Blur)
-  visualStyleGroup.addEventListener('click', (e) => {
-    const btn = e.target.closest('.pill-btn');
-    if (!btn) return;
-    visualStyleGroup.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    save({ visualStyle: btn.getAttribute('data-style') });
   });
 
   // Filter Mode Event (Whitelist vs Blacklist)

@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Controls
   const masterToggle = document.getElementById('opt-master-toggle');
-  const visualStyle = document.getElementById('opt-visual-style');
   const hideShorts = document.getElementById('opt-hide-shorts');
   const floatingBadge = document.getElementById('opt-floating-badge');
   const watchSuggest = document.getElementById('opt-watch-suggest');
@@ -69,7 +68,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function init() {
     masterToggle.checked = prefs.enabled !== false;
-    visualStyle.value = prefs.visualStyle || 'hide';
     hideShorts.checked = Boolean(prefs.hideShorts);
     floatingBadge.checked = prefs.showFloatingBadge !== false;
     watchSuggest.checked = prefs.autoSuggestOnWatch !== false;
@@ -114,7 +112,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Settings change listeners
   masterToggle.addEventListener('change', () => save({ enabled: masterToggle.checked }));
-  visualStyle.addEventListener('change', () => save({ visualStyle: visualStyle.value }));
   hideShorts.addEventListener('change', () => save({ hideShorts: hideShorts.checked }));
   floatingBadge.addEventListener('change', () => save({ showFloatingBadge: floatingBadge.checked }));
   watchSuggest.addEventListener('change', () => save({ autoSuggestOnWatch: watchSuggest.checked }));
@@ -225,7 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const defaults = {
         enabled: true,
         filterMode: 'whitelist',
-        visualStyle: 'hide',
+        visualStyle: 'blur',
         keywords: ['#ai', 'coding', 'productivity', 'minimalism', 'synthwave'],
         negativeKeywords: ['clickbait', 'prank', 'drama'],
         matchTarget: { title: true, channel: true, hashtags: true, description: true },
