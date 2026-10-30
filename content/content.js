@@ -108,8 +108,35 @@
 
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
+      // Do not touch cards inside VibeFeed's curated shelf
+      if (card.closest && card.closest('#vibefeed-curated-shelf')) continue;
       const isFiltered = filterEngine.filterCard(card);
       if (isFiltered) filteredCount++;
+    }
+
+    // In Clean Hide mode: collapse empty rows in YouTube's grid so there are no large gaps
+    if (preferences.visualStyle === 'hide') {
+      const rows = document.querySelectorAll('ytd-rich-grid-row');
+      rows.forEach(row => {
+        const items = row.querySelectorAll('ytd-rich-item-renderer');
+        if (items.length > 0) {
+          const visible = row.querySelectorAll('ytd-rich-item-renderer:not(.vibefeed-clean-hide)');
+          if (visible.length === 0) {
+            row.style.setProperty('display', 'none', 'important');
+            row.classList.add('vibefeed-empty-row');
+          } else {
+            row.style.removeProperty('display');
+            row.classList.remove('vibefeed-empty-row');
+          }
+        }
+      });
+    } else {
+      // In Frosted Glass mode, ensure rows stay visible
+      const rows = document.querySelectorAll('ytd-rich-grid-row.vibefeed-empty-row');
+      rows.forEach(row => {
+        row.style.removeProperty('display');
+        row.classList.remove('vibefeed-empty-row');
+      });
     }
 
     // Report filtered count to background for toolbar badge

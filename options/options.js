@@ -43,6 +43,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.local.get(null, resolve);
   });
 
+  // Keep options page in sync when storage changes elsewhere (e.g. popup or another tab)
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local') {
+      for (const [key, change] of Object.entries(changes)) {
+        prefs[key] = change.newValue;
+      }
+      init();
+    }
+  });
+
   function save(slice) {
     prefs = { ...prefs, ...slice };
     chrome.storage.local.set(slice, () => {
@@ -144,21 +154,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     btn.addEventListener('click', () => {
       const packKey = btn.getAttribute('data-pack');
       const tags = STARTER_PACKS[packKey] || [];
-      const current = Array.isArray(prefs.keywords) ? prefs.keywords : [];
 
-      const currentLower = new Set(current.map(k => k.toLowerCase()));
-      const combined = [...current];
+      // Cleanly replace keywords with starter pack tags (clearing previous preferences)
+      save({
+        keywords: [...tags],
+        keywordWeights: {}
+      });
 
-      for (const t of tags) {
-        if (!currentLower.has(t.toLowerCase())) {
-          combined.push(t);
-        }
-      }
-
-      save({ keywords: combined });
       btn.textContent = '✓ Applied';
-      btn.style.background = '#30D158';
-      btn.style.color = '#FFFFFF';
+      btn.style.background = '#FFFFFF';
+      btn.style.color = '#000000';
       setTimeout(() => {
         btn.textContent = 'Apply Starter Pack';
         btn.style.background = '';

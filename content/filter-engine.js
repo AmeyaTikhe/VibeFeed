@@ -191,11 +191,21 @@
       // Check if this is a Shorts shelf container
       if (card.matches('ytd-rich-section-renderer, ytd-reel-shelf-renderer')) {
         if (this.preferences.enabled && this.preferences.hideShorts) {
-          card.style.display = 'none';
+          card.classList.add('vibefeed-clean-hide');
+          if (card.style && card.style.setProperty) {
+            card.style.setProperty('display', 'none', 'important');
+          } else if (card.style) {
+            card.style.display = 'none';
+          }
           card.setAttribute('data-vibefeed-state', 'hidden');
           return true;
         } else {
-          card.style.display = '';
+          card.classList.remove('vibefeed-clean-hide');
+          if (card.style && card.style.removeProperty) {
+            card.style.removeProperty('display');
+          } else if (card.style) {
+            card.style.display = '';
+          }
           card.removeAttribute('data-vibefeed-state');
           return false;
         }
@@ -229,7 +239,12 @@
     applyFilterStyle(card) {
       if (this.preferences.visualStyle === 'blur') {
         // Apple Frosted Glass Blur Mode
-        card.style.display = '';
+        card.classList.remove('vibefeed-clean-hide');
+        if (card.style && card.style.removeProperty) {
+          card.style.removeProperty('display');
+        } else if (card.style) {
+          card.style.display = '';
+        }
         card.classList.add('vibefeed-frosted-card');
 
         // Ensure badge overlay exists
@@ -245,27 +260,58 @@
           card.appendChild(badge);
         }
       } else {
-        // Strict Hide Mode (default Apple clean)
-        card.style.display = 'none';
+        // Strict Clean Hide Mode (collapses non-matching cards)
         card.classList.remove('vibefeed-frosted-card');
         const badge = card.querySelector('.vibefeed-frosted-badge');
         if (badge) badge.remove();
+
+        card.classList.add('vibefeed-clean-hide');
+        if (card.style && card.style.setProperty) {
+          card.style.setProperty('display', 'none', 'important');
+        } else if (card.style) {
+          card.style.display = 'none';
+        }
       }
     }
 
     unfilterCard(card) {
-      card.style.display = '';
+      card.classList.remove('vibefeed-clean-hide');
       card.classList.remove('vibefeed-frosted-card');
+      if (card.style && card.style.removeProperty) {
+        card.style.removeProperty('display');
+      } else if (card.style) {
+        card.style.display = '';
+      }
       const badge = card.querySelector('.vibefeed-frosted-badge');
       if (badge) badge.remove();
+
+      // If card was in a collapsed row, restore the row
+      const row = card.closest ? card.closest('ytd-rich-grid-row') : null;
+      if (row && row.style) {
+        if (row.style.removeProperty) {
+          row.style.removeProperty('display');
+        } else {
+          row.style.display = '';
+        }
+        row.classList.remove('vibefeed-empty-row');
+      }
     }
 
     /**
      * Resets all cards back to visible state
      */
     resetAllCards() {
-      const cards = document.querySelectorAll('[data-vibefeed-state]');
+      if (typeof document === 'undefined') return;
+      const cards = document.querySelectorAll('[data-vibefeed-state], .vibefeed-clean-hide, .vibefeed-frosted-card');
       cards.forEach(card => this.unfilterCard(card));
+      document.querySelectorAll('ytd-rich-grid-row, .vibefeed-empty-row').forEach(row => {
+        if (row.style && row.style.removeProperty) {
+          row.style.removeProperty('display');
+        } else if (row.style) {
+          row.style.display = '';
+        }
+        row.classList.remove('vibefeed-empty-row');
+      });
       this.filteredElements = new WeakSet();
       this.sessionFilteredCount = 0;
     }

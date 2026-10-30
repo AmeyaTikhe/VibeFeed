@@ -11,6 +11,29 @@
   border-radius: 14px !important;
 }
 
+/* Clean Hide Mode for Filtered YouTube Cards & Empty Rows */
+.vibefeed-clean-hide,
+[data-vibefeed-state="filtered"].vibefeed-clean-hide,
+[data-vibefeed-state="hidden"].vibefeed-clean-hide {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+ytd-rich-grid-row.vibefeed-empty-row {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 .vibefeed-frosted-card > *:not(.vibefeed-frosted-badge) {
   filter: blur(14px) brightness(0.35) grayscale(0.6) !important;
   pointer-events: none !important;
