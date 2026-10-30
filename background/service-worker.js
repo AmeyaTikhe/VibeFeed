@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VibeFeed - Background Service Worker (Manifest V3)
  * Handles storage initialization, badge counters, and tab messaging.
  */
@@ -440,9 +440,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true, suggestions: top.slice(0, limit).map(c => c.tag) });
     })();
     return true; // async
-  }
-
-
   }
 
   if (message.action === 'INCREMENT_FILTER_COUNT') {
