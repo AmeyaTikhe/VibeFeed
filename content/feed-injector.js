@@ -15,7 +15,7 @@
       this.injectedIds = new Set();
       this.currentVideoPool = [];
       this.activeFilteredPool = [];
-      this.displayedCount = 8;
+      this.displayedCount = 18;
       this.shelfElement = null;
       this.preferences = null;
 
@@ -61,7 +61,7 @@
         // Invalidate cache only if keywords changed
         if (oldKeywords !== newKeywords) {
           this.cachedVideos.clear();
-          this.displayedCount = 8;
+          this.displayedCount = 18;
         }
         await this.refreshShelfVideos();
       }, 600);
@@ -216,7 +216,7 @@
     triggerAutoRefresh() {
       if (this._refreshDebounceTimer) clearTimeout(this._refreshDebounceTimer);
       this._refreshDebounceTimer = setTimeout(async () => {
-        this.displayedCount = 8;
+        this.displayedCount = 18;
         await this.renderCardsForCurrentTab();
       }, 300);
     }
@@ -508,7 +508,7 @@
           const latestPrefs = await new Promise(res => chrome.storage.local.get(null, res));
           this.setPreferences(latestPrefs);
           this.cachedVideos.clear();
-          this.displayedCount = 8;
+          this.displayedCount = 18;
           this.renderDropdown();
           await this.refreshShelfVideos();
           setTimeout(() => refreshBtn.classList.remove('spinning'), 600);

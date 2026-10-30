@@ -3,6 +3,17 @@
    Pure monochrome palette, translucent frosted carbon panels, dot-matrix cues
    ========================================================================== */
 
+/* The curated shelf is ALWAYS visible regardless of filter mode */
+#vibefeed-curated-shelf {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: unset !important;
+  pointer-events: auto !important;
+}
+
 /* Frosted Glass Blur Mode for YouTube Video Cards */
 .vibefeed-frosted-card {
   position: relative !important;
@@ -12,14 +23,17 @@
 }
 
 /* Clean Hide Mode for Filtered YouTube Cards & Empty Rows */
-.vibefeed-clean-hide,
-[data-vibefeed-state="filtered"].vibefeed-clean-hide,
-[data-vibefeed-state="hidden"].vibefeed-clean-hide {
+/* Never apply to anything inside the curated shelf */
+ytd-rich-item-renderer.vibefeed-clean-hide,
+ytd-video-renderer.vibefeed-clean-hide,
+ytd-compact-video-renderer.vibefeed-clean-hide,
+ytd-grid-video-renderer.vibefeed-clean-hide,
+ytd-rich-section-renderer.vibefeed-clean-hide,
+ytd-reel-shelf-renderer.vibefeed-clean-hide {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
   min-height: 0 !important;
-  width: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   opacity: 0 !important;
