@@ -15,7 +15,7 @@
       this.injectedIds = new Set();
       this.currentVideoPool = [];
       this.activeFilteredPool = [];
-      this.displayedCount = 18;
+      this.displayedCount = 8;
       this.shelfElement = null;
       this.preferences = null;
 
@@ -61,7 +61,7 @@
         // Invalidate cache only if keywords changed
         if (oldKeywords !== newKeywords) {
           this.cachedVideos.clear();
-          this.displayedCount = 18;
+          this.displayedCount = 8;
         }
         await this.refreshShelfVideos();
       }, 600);
@@ -216,7 +216,7 @@
     triggerAutoRefresh() {
       if (this._refreshDebounceTimer) clearTimeout(this._refreshDebounceTimer);
       this._refreshDebounceTimer = setTimeout(async () => {
-        this.displayedCount = 18;
+        this.displayedCount = 8;
         await this.renderCardsForCurrentTab();
       }, 300);
     }
@@ -398,6 +398,36 @@
       return merged;
     }
 
+    async fetchAdditionalVideos() {
+      const allKeywords = this.preferences?.keywords || [];
+      const activeKeywords = this.isAllSelected
+        ? allKeywords.slice(0, 8)
+        : [...this.selectedKeywords].slice(0, 8);
+
+      if (activeKeywords.length === 0) return;
+
+      const fetchPromises = [];
+      const seenIds = new Set((this.currentVideoPool || []).map(v => v.id));
+
+      for (const kw of activeKeywords) {
+        const expanded = this.expandKeywordQueries(kw);
+        for (let i = 1; i < expanded.length; i++) {
+          fetchPromises.push(this.fetchVideosForQuery(expanded[i], kw, false));
+        }
+      }
+
+      const resultsArray = await Promise.all(fetchPromises);
+      for (const arr of resultsArray) {
+        for (const v of arr) {
+          if (!seenIds.has(v.id)) {
+            seenIds.add(v.id);
+            this.currentVideoPool.push(v);
+          }
+        }
+      }
+      this.activeFilteredPool = this.currentVideoPool;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Shelf Injection
     // ─────────────────────────────────────────────────────────────────────────
@@ -478,7 +508,7 @@
           const latestPrefs = await new Promise(res => chrome.storage.local.get(null, res));
           this.setPreferences(latestPrefs);
           this.cachedVideos.clear();
-          this.displayedCount = 18;
+          this.displayedCount = 8;
           this.renderDropdown();
           await this.refreshShelfVideos();
           setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
@@ -487,9 +517,24 @@
 
       const loadMoreBtn = this.shelfElement.querySelector('#vf-load-more');
       if (loadMoreBtn) {
-        loadMoreBtn.addEventListener('click', () => {
-          this.displayedCount += 12;
-          this.renderCardsFromPool();
+        loadMoreBtn.addEventListener('click', async () => {
+          const originalText = '✦ Load More Curated Videos ↓';
+          loadMoreBtn.textContent = '✦ Loading More Videos...';
+          loadMoreBtn.style.opacity = '0.7';
+
+          const list = this.activeFilteredPool || this.currentVideoPool || [];
+          if (this.displayedCount < list.length) {
+            this.displayedCount += 8;
+            this.renderCardsFromPool();
+          } else {
+            // Pool is fully displayed, fetch more queries
+            await this.fetchAdditionalVideos();
+            this.displayedCount += 8;
+            this.renderCardsFromPool();
+          }
+
+          loadMoreBtn.textContent = originalText;
+          loadMoreBtn.style.opacity = '1';
         });
       }
     }
@@ -576,7 +621,7 @@
       this.attachVideoCardClicks(cardsContainer);
 
       if (footer) {
-        footer.style.display = list.length > this.displayedCount ? 'flex' : 'none';
+        footer.style.display = list.length > 0 ? 'flex' : 'none';
       }
     }
 
