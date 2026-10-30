@@ -477,7 +477,7 @@
             <span>Curating rich feed of videos matching your preferences...</span>
           </div>
         </div>
-        <div class="vf-shelf-footer" id="vf-shelf-footer" style="display: none;">
+        <div class="vf-shelf-footer" id="vf-shelf-footer">
           <button class="vf-load-more-btn" id="vf-load-more">✦ Load More Curated Videos ↓</button>
         </div>
       `;
@@ -544,7 +544,8 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     async refreshShelfVideos() {
-      const cardsContainer = document.getElementById('vf-shelf-cards');
+      if (!this.shelfElement) return;
+      const cardsContainer = this.shelfElement.querySelector('#vf-shelf-cards');
       if (!cardsContainer) return;
 
       cardsContainer.innerHTML = `
@@ -559,9 +560,10 @@
     }
 
     async renderCardsForCurrentTab() {
-      const cardsContainer = document.getElementById('vf-shelf-cards');
-      const footer = document.getElementById('vf-shelf-footer');
-      const counter = document.getElementById('vf-shelf-counter');
+      if (!this.shelfElement) return;
+      const cardsContainer = this.shelfElement.querySelector('#vf-shelf-cards');
+      const footer = this.shelfElement.querySelector('#vf-shelf-footer');
+      const counter = this.shelfElement.querySelector('#vf-shelf-counter');
       if (!cardsContainer) return;
 
       // Filter pool to only selected keywords
@@ -610,8 +612,9 @@
     }
 
     renderCardsFromPool() {
-      const cardsContainer = document.getElementById('vf-shelf-cards');
-      const footer = document.getElementById('vf-shelf-footer');
+      if (!this.shelfElement) return;
+      const cardsContainer = this.shelfElement.querySelector('#vf-shelf-cards');
+      const footer = this.shelfElement.querySelector('#vf-shelf-footer');
       if (!cardsContainer) return;
 
       const list = this.activeFilteredPool || this.currentVideoPool || [];
